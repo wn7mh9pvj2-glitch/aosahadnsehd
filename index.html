@@ -7,6 +7,598 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700;900&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, addDoc, getDocs, deleteDoc,
+  query, orderBy, limit, onSnapshot, serverTimestamp, increment }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// ═══════════════════════════════════════
+// FIREBASE 초기화
+// ═══════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyDDDd2HKBY_VAkPMTUXY6mK0IQeQbAnE4w",
+  authDomain: "ironbody-1044f.firebaseapp.com",
+  projectId: "ironbody-1044f",
+  storageBucket: "ironbody-1044f.firebasestorage.app",
+  messagingSenderId: "64265735335",
+  appId: "1:64265735335:web:16365dd66391fe3da35f82"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db  = getFirestore(app);
+
+// ═══════════════════════════════════════
+// 전역 상태
+// ═══════════════════════════════════════
+const AVATARS = ['😀','💪','🔥','⚔️','🦁','🐉','✨','👑','🏋️','🎯'];
+window.currentUser   = null;   // Firestore 유저 문서
+window.currentUid    = null;   // Firebase Auth uid
+window.posts         = [];
+window.selectedTags  = [];
+window.currentChIdx  = null;
+window.pendingRecord = null;
+
+// ═══════════════════════════════════════
+// 로딩 스피너
+// ═══════════════════════════════════════
+function showLoading(msg=''){
+  let el=document.getElementById('fbLoading');
+  if(!el){
+    el=document.createElement('div');
+    el.id='fbLoading';
+    el.style.cssText='position:fixed;inset:0;z-index:9000;background:rgba(7,8,9,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;';
+    el.innerHTML=`<div style="width:36px;height:36px;border:3px solid rgba(232,255,0,.2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;"></div>
+    <div id="fbLoadingMsg" style="font-family:'Barlow Condensed',sans-serif;letter-spacing:2px;font-size:.85rem;color:var(--muted);">${msg}</div>`;
+    if(!document.querySelector('style[data-spin]')){
+      const s=document.createElement('style');s.dataset.spin='1';
+      s.textContent='@keyframes spin{to{transform:rotate(360deg)}}';
+      document.head.appendChild(s);
+    }
+    document.body.appendChild(el);
+  } else {
+    document.getElementById('fbLoadingMsg').textContent=msg;
+    el.style.display='flex';
+  }
+}
+function hideLoading(){ const el=document.getElementById('fbLoading'); if(el) el.style.display='none'; }
+
+// ═══════════════════════════════════════
+// AUTH 탭 전환
+// ═══════════════════════════════════════
+window.switchAuthTab = function(tab){
+  document.querySelectorAll('.auth-tab').forEach((t,i)=>{
+    t.classList.toggle('active',(i===0&&tab==='login')||(i===1&&tab==='signup'));
+  });
+  document.getElementById('loginForm').classList.toggle('hidden',tab!=='login');
+  document.getElementById('signupForm').classList.toggle('hidden',tab!=='signup');
+};
+
+// ═══════════════════════════════════════
+// 로그인
+// ═══════════════════════════════════════
+window.doLogin = async function(){
+  const email = document.getElementById('loginEmail').value.trim();
+  const pw    = document.getElementById('loginPw').value;
+  const errEl = document.getElementById('loginErr');
+  errEl.textContent='';
+  if(!email||!pw){ errEl.textContent='이메일과 비밀번호를 입력하세요.'; return; }
+  showLoading('로그인 중...');
+  try{
+    await signInWithEmailAndPassword(auth, email, pw);
+    // onAuthStateChanged가 나머지 처리
+  } catch(e){
+    hideLoading();
+    if(e.code==='auth/user-not-found'||e.code==='auth/wrong-password'||e.code==='auth/invalid-credential')
+      errEl.textContent='이메일 또는 비밀번호가 올바르지 않습니다.';
+    else errEl.textContent='로그인 실패: '+e.message;
+  }
+};
+
+// ═══════════════════════════════════════
+// 회원가입
+// ═══════════════════════════════════════
+window.doSignup = async function(){
+  const name  = document.getElementById('signupName').value.trim();
+  const email = document.getElementById('signupEmail').value.trim();
+  const pw    = document.getElementById('signupPw').value;
+  const errEl = document.getElementById('signupErr');
+  errEl.textContent='';
+  if(!name||!email||!pw){ errEl.textContent='모든 항목을 입력하세요.'; return; }
+  if(pw.length<6){ errEl.textContent='비밀번호는 6자 이상이어야 합니다.'; return; }
+  showLoading('계정 생성 중...');
+  try{
+    const cred = await createUserWithEmailAndPassword(auth, email, pw);
+    const uid  = cred.user.uid;
+    const avatar = AVATARS[Math.floor(Math.random()*AVATARS.length)];
+    const userData = {
+      uid, name, email, avatar,
+      points: 100, totalReps: 0,
+      bests: {pushup:0,pullup:0,squat:0,situp:0,dips:0},
+      joinedChallenges: [], challengeProgress: {},
+      createdAt: serverTimestamp()
+    };
+    await setDoc(doc(db,'users',uid), userData);
+    // onAuthStateChanged가 나머지 처리
+  } catch(e){
+    hideLoading();
+    if(e.code==='auth/email-already-in-use')
+      errEl.textContent='이미 사용 중인 이메일입니다.';
+    else errEl.textContent='가입 실패: '+e.message;
+  }
+};
+
+// ═══════════════════════════════════════
+// 로그아웃
+// ═══════════════════════════════════════
+window.doLogout = async function(){
+  stopCam();
+  closeProfile();
+  closeMobileMenu();
+  await signOut(auth);
+  window.currentUser=null; window.currentUid=null;
+  document.getElementById('mainNav').classList.add('hidden');
+  document.getElementById('mobileTabbar').classList.add('hidden');
+  document.getElementById('authScreen').classList.remove('hidden');
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+};
+
+// ═══════════════════════════════════════
+// Auth 상태 감지 — 앱의 진입점
+// ═══════════════════════════════════════
+onAuthStateChanged(auth, async (fbUser)=>{
+  if(fbUser){
+    showLoading('데이터 불러오는 중...');
+    try{
+      const snap = await getDoc(doc(db,'users',fbUser.uid));
+      if(!snap.exists()){
+        // Firestore 문서가 없으면 로그아웃
+        await signOut(auth); hideLoading(); return;
+      }
+      window.currentUser = { uid: fbUser.uid, ...snap.data() };
+      window.currentUid  = fbUser.uid;
+      hideLoading();
+      document.getElementById('authScreen').classList.add('hidden');
+      document.getElementById('mainNav').classList.remove('hidden');
+      if(window.innerWidth<=768) document.getElementById('mobileTabbar').classList.remove('hidden');
+      updateNavUI();
+      goPage('home');
+      setTimeout(animateHomeStats,300);
+      showToast(`환영합니다, ${window.currentUser.name}님! 💪`);
+    } catch(e){
+      hideLoading();
+      showToast('데이터 로드 실패: '+e.message);
+    }
+  } else {
+    hideLoading();
+  }
+});
+
+// ═══════════════════════════════════════
+// Firestore — 유저 저장
+// ═══════════════════════════════════════
+window.saveCurrentUser = async function(){
+  if(!window.currentUid||!window.currentUser) return;
+  try{
+    const {uid, ...data} = window.currentUser;
+    await setDoc(doc(db,'users',window.currentUid), data, {merge:true});
+    updateNavUI();
+  } catch(e){ console.error('saveCurrentUser:', e); }
+};
+
+// Nav UI 업데이트
+window.updateNavUI = function(){
+  const u = window.currentUser;
+  if(!u) return;
+  document.getElementById('navUsername').textContent = u.name;
+  document.getElementById('navPts').textContent      = (u.points||0).toLocaleString();
+  document.getElementById('navAvatar').textContent   = u.avatar||'😀';
+  const da=document.getElementById('drawerAvatar');
+  const dn=document.getElementById('drawerName');
+  const dp=document.getElementById('drawerPts');
+  if(da) da.textContent=u.avatar||'😀';
+  if(dn) dn.textContent=u.name;
+  if(dp) dp.textContent=(u.points||0).toLocaleString()+' P';
+  // 랭킹은 비동기로 계산
+  getRankPosition().then(rank=>{
+    document.getElementById('navRank').textContent = rank>0?`랭킹 #${rank}`:'랭킹 —';
+  });
+};
+
+async function getRankPosition(){
+  if(!window.currentUid) return 0;
+  try{
+    const snap = await getDocs(collection(db,'users'));
+    const all = snap.docs.map(d=>d.data()).filter(u=>u.uid!==undefined);
+    all.sort((a,b)=>(b.totalReps||0)-(a.totalReps||0));
+    return all.findIndex(u=>u.uid===window.currentUid)+1;
+  } catch{ return 0; }
+}
+
+// ═══════════════════════════════════════
+// 홈 스탯 — Firestore 실시간
+// ═══════════════════════════════════════
+let homeStatsUnsub = null;
+let homeStatsInterval = null;
+
+window.animateHomeStats = function(){
+  // Firestore 실시간 리스너로 유저 수 / 총 운동횟수 구독
+  if(homeStatsUnsub) homeStatsUnsub();
+  homeStatsUnsub = onSnapshot(collection(db,'users'), (snap)=>{
+    const docs = snap.docs.map(d=>d.data());
+    const userCount   = docs.length;
+    const totalReps   = docs.reduce((s,u)=>s+(u.totalReps||0),0);
+    const joinedSet   = new Set();
+    docs.forEach(u=>(u.joinedChallenges||[]).forEach(cid=>joinedSet.add(cid)));
+    const challenges  = joinedSet.size;
+
+    updateStatSmoothly(document.getElementById('hs1'), userCount);
+    updateStatSmoothly(document.getElementById('hs2'), totalReps);
+    updateStatSmoothly(document.getElementById('hs3'), challenges);
+    const e4=document.getElementById('hs4');
+    if(e4){ e4.textContent='LIVE'; e4.style.color='var(--accent3)'; e4.style.animation='blink 1.5s infinite'; }
+  }, ()=>{});
+};
+
+window.refreshHomeStatsNow = function(){
+  // 실시간 리스너가 이미 있으므로 별도 호출 불필요
+};
+
+function updateStatSmoothly(el, newVal){
+  if(!el) return;
+  const current = parseInt((el.textContent||'0').replace(/,/g,''))||0;
+  if(current===newVal) return;
+  animNum(el, newVal, 600);
+  el.style.transition='color .3s';
+  el.style.color='var(--accent)';
+  setTimeout(()=>{ el.style.color=''; },800);
+}
+window.animNum = function(el, end, dur){
+  if(!el) return;
+  let t0=null;
+  const step=(ts)=>{
+    if(!t0) t0=ts;
+    const p=Math.min((ts-t0)/dur,1);
+    el.textContent=Math.floor(p*end).toLocaleString();
+    if(p<1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+};
+
+// ═══════════════════════════════════════
+// 랭킹 — Firestore
+// ═══════════════════════════════════════
+window.curRankTab='weekly'; window.curExFilter='all';
+
+window.renderRanking = async function(){
+  const listEl = document.getElementById('rankList');
+  listEl.innerHTML=`<div style="text-align:center;padding:2rem;color:var(--muted);font-family:'Barlow Condensed',sans-serif;letter-spacing:1px;">불러오는 중...</div>`;
+  try{
+    const snap = await getDocs(collection(db,'users'));
+    const data = snap.docs.map(d=>({...d.data(),uid:d.id}))
+      .sort((a,b)=>(b.totalReps*10+(b.points||0))-(a.totalReps*10+(a.points||0)));
+
+    if(data.length===0){
+      listEl.innerHTML=`<div style="text-align:center;padding:3rem 1rem;color:var(--muted);font-family:'Barlow Condensed',sans-serif;font-size:.9rem;letter-spacing:1px;">아직 등록된 유저가 없습니다.<br>운동을 시작해서 첫 번째 랭커가 되세요! 🏆</div>`;
+      return;
+    }
+    const medals=['gold','silver','bronze'];
+    const medalE=['🥇','🥈','🥉'];
+    listEl.innerHTML = data.map((r,i)=>{
+      const rank=i+1;
+      const mc=rank<=3?medals[rank-1]:'norm';
+      const isMe=window.currentUid&&r.uid===window.currentUid;
+      const score=window.curExFilter!=='all'
+        ?(r.bests&&r.bests[window.curExFilter]?r.bests[window.curExFilter]+'회':'—')
+        :(r.totalReps*10+(r.points||0)).toLocaleString();
+      const badges=[];
+      if((r.totalReps||0)>=100) badges.push('💪 100+');
+      if((r.joinedChallenges||[]).length>0) badges.push(`🏆 챌린지${r.joinedChallenges.length}`);
+      if(isMe) badges.push('나');
+      const borderStyle=rank===1?'border-color:var(--gold)':rank===2?'border-color:var(--silver)':rank===3?'border-color:var(--bronze)':isMe?'border-color:var(--accent)':'';
+      return `<div class="rank-row ${rank<=3?'r'+rank:''} ${isMe?'me-row':''}">
+        <div class="rn ${mc}">${rank<=3?medalE[rank-1]:rank}</div>
+        <div class="ru">
+          <div class="rav" style="${borderStyle}">${r.avatar||'😀'}</div>
+          <div>
+            <div class="rname" style="${isMe?'color:var(--accent)':''}">${r.name}${isMe?' (나)':''}</div>
+            <div class="rtag">총 ${(r.totalReps||0).toLocaleString()}회</div>
+          </div>
+        </div>
+        <div class="rscore ${rank>3&&!isMe?'dim':''}">${score}</div>
+        <div class="rch eq">${(r.points||0).toLocaleString()}P</div>
+        <div class="rbdg">${badges.map(b=>`<span class="bdg">${b}</span>`).join('')}</div>
+      </div>`;
+    }).join('');
+  } catch(e){
+    listEl.innerHTML=`<div style="text-align:center;padding:2rem;color:var(--accent2);font-family:'Barlow Condensed',sans-serif;">랭킹을 불러오지 못했습니다</div>`;
+  }
+};
+
+window.switchRankTab = function(el,type){
+  window.curRankTab=type;
+  document.querySelectorAll('.rank-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active'); renderRanking();
+};
+window.switchExFilter = function(el,type){
+  window.curExFilter=type;
+  document.querySelectorAll('.filter-pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active'); renderRanking();
+};
+
+// ═══════════════════════════════════════
+// 커뮤니티 — Firestore
+// ═══════════════════════════════════════
+const EX_KR_MAP={pushup:'푸쉬업',pullup:'턱걸이',squat:'스쿼트',situp:'싯업',dips:'딥스'};
+window.EX_KR_MAP = EX_KR_MAP;
+
+window.renderCommunity = async function(){
+  if(window.currentUser)
+    document.getElementById('composeAvatar').textContent=window.currentUser.avatar||'😀';
+  await renderPosts();
+  await renderTopUsers();
+};
+
+window.renderPosts = async function(){
+  const feed=document.getElementById('postsFeed');
+  feed.innerHTML=`<div style="text-align:center;padding:2rem;color:var(--muted);font-family:'Barlow Condensed',sans-serif;letter-spacing:1px;">게시물 불러오는 중...</div>`;
+  try{
+    const q = query(collection(db,'posts'), orderBy('createdAt','desc'), limit(30));
+    const snap = await getDocs(q);
+    window.posts = snap.docs.map(d=>({id:d.id,...d.data()}));
+
+    if(window.posts.length===0){
+      feed.innerHTML=`<div style="text-align:center;padding:3rem 1rem;color:var(--muted);">
+        <div style="font-size:2.5rem;margin-bottom:1rem;">💪</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1rem;letter-spacing:1px;">아직 게시물이 없습니다.<br>첫 번째로 운동 기록을 공유해보세요!</div>
+      </div>`;
+      return;
+    }
+    feed.innerHTML = window.posts.map((p,pi)=>{
+      const isMyPost = window.currentUid && p.userId===window.currentUid;
+      const tagColor=p.tag==='인증'?'var(--green)':p.tag==='챌린지'?'var(--accent2)':p.tag==='팁'?'var(--accent3)':'var(--muted)';
+      const tagBg=p.tag==='인증'?'rgba(74,222,128,.08)':p.tag==='챌린지'?'rgba(255,60,60,.08)':p.tag==='팁'?'rgba(0,212,255,.08)':'rgba(100,100,100,.08)';
+      const timeStr = p.createdAt?.toDate ? p.createdAt.toDate().toLocaleDateString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : (p.timeStr||'');
+      return `<div class="post-card reveal" id="post-${p.id}">
+        <div class="post-head">
+          <div class="post-avatar">${p.avatar||'😀'}</div>
+          <div class="post-meta">
+            <div class="post-name">${p.author||'익명'}</div>
+            <div class="post-time">${timeStr}</div>
+          </div>
+          <div class="post-tag-badge" style="color:${tagColor};border-color:${tagColor};background:${tagBg}">#${p.tag||'운동'}</div>
+          ${isMyPost?`<button onclick="deletePost('${p.id}')" style="background:none;border:none;color:var(--muted2);cursor:pointer;font-size:.8rem;margin-left:.4rem;padding:.2rem;">🗑</button>`:''}
+        </div>
+        <div class="post-body">${(p.body||'').replace(/\n/g,'<br>')}</div>
+        ${p.record ? renderRecordCard(p.record) : ''}
+        <div class="post-actions">
+          <button class="post-action ${p.likedBy&&p.likedBy[window.currentUid]?'liked':''}" onclick="toggleLike('${p.id}',${pi})">
+            ${p.likedBy&&p.likedBy[window.currentUid]?'❤️':'🤍'} ${p.likeCount||0}
+          </button>
+          <button class="post-action" onclick="toggleComments('${p.id}')">💬 ${(p.comments||[]).length}</button>
+          <button class="post-action" onclick="copyShareLink('${p.author}')">↗ 공유</button>
+        </div>
+        <div class="comments-section" id="cmts-${p.id}">
+          ${(p.comments||[]).map(c=>`
+          <div class="comment-row">
+            <div class="comment-av">${c.av||'😀'}</div>
+            <div class="comment-body"><div class="comment-author">${c.author}</div>${c.body}</div>
+          </div>`).join('')}
+          <div class="comment-input-row">
+            <input class="comment-input" id="ci-${p.id}" placeholder="댓글 작성..." onkeydown="if(event.key==='Enter')addComment('${p.id}',${pi})">
+            <button class="btn btn-accent btn-xs" onclick="addComment('${p.id}',${pi})">등록</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    initReveal();
+  } catch(e){
+    feed.innerHTML=`<div style="text-align:center;padding:2rem;color:var(--accent2);font-family:'Barlow Condensed',sans-serif;">게시물을 불러오지 못했습니다</div>`;
+  }
+};
+
+window.renderRecordCard = function(record){
+  const EX_ICON={pushup:'💪',pullup:'⬆️',squat:'🦵',situp:'🔥',dips:'🏋️'};
+  const icon=EX_ICON[record.exercise]||'💪';
+  const exName=EX_KR_MAP[record.exercise]||record.exercise;
+  const sets=record.sets||[];
+  const totalReps=sets.reduce((s,st)=>s+(st.reps||0),0)||record.reps||0;
+  return `<div class="post-record">
+    <div class="prec-item"><div class="prec-val">${icon} ${exName}</div><div class="prec-lbl">종목</div></div>
+    ${sets.length?`<div class="prec-item"><div class="prec-val">${sets.length}</div><div class="prec-lbl">세트</div></div>`:''}
+    <div class="prec-item"><div class="prec-val">${totalReps}</div><div class="prec-lbl">총 횟수</div></div>
+    ${record.duration?`<div class="prec-item"><div class="prec-val" style="color:var(--accent3)">${record.duration}</div><div class="prec-lbl">시간</div></div>`:''}
+  </div>`;
+};
+
+window.toggleLike = async function(postId, pi){
+  if(!window.currentUid){ showToast('로그인이 필요합니다'); return; }
+  const postRef = doc(db,'posts',postId);
+  const p = window.posts[pi];
+  const liked = p.likedBy&&p.likedBy[window.currentUid];
+  try{
+    await updateDoc(postRef,{
+      [`likedBy.${window.currentUid}`]: liked ? null : true,
+      likeCount: increment(liked?-1:1)
+    });
+    await renderPosts();
+  } catch(e){ showToast('좋아요 처리 실패'); }
+};
+
+window.toggleComments = function(id){
+  const el=document.getElementById('cmts-'+id);
+  if(el) el.classList.toggle('open');
+};
+
+window.addComment = async function(postId, pi){
+  const inp=document.getElementById('ci-'+postId);
+  const body=inp.value.trim();
+  if(!body) return;
+  const postRef=doc(db,'posts',postId);
+  const comment={
+    author: window.currentUser?.name||'익명',
+    av: window.currentUser?.avatar||'😀',
+    body,
+    createdAt: new Date().toISOString()
+  };
+  try{
+    const snap=await getDoc(postRef);
+    const comments=[...(snap.data().comments||[]),comment];
+    await updateDoc(postRef,{comments});
+    inp.value='';
+    await renderPosts();
+    setTimeout(()=>{ const el=document.getElementById('cmts-'+postId); if(el) el.classList.add('open'); },50);
+  } catch(e){ showToast('댓글 등록 실패'); }
+};
+
+window.deletePost = async function(postId){
+  if(!confirm('이 게시물을 삭제하시겠습니까?')) return;
+  try{
+    await deleteDoc(doc(db,'posts',postId));
+    showToast('게시물이 삭제됐습니다');
+    await renderPosts();
+  } catch(e){ showToast('삭제 실패'); }
+};
+
+window.submitPost = async function(){
+  const body=document.getElementById('postContent').value.trim();
+  if(!body){ showToast('내용을 입력해주세요'); return; }
+  showLoading('게시 중...');
+  try{
+    await addDoc(collection(db,'posts'),{
+      userId: window.currentUid,
+      author: window.currentUser?.name||'익명',
+      avatar: window.currentUser?.avatar||'😀',
+      tag: window.selectedTags.length?window.selectedTags[0]:'운동',
+      body,
+      record: window.pendingRecord||null,
+      likeCount: 0,
+      likedBy: {},
+      comments: [],
+      createdAt: serverTimestamp()
+    });
+    // 포인트 적립
+    if(window.currentUser){
+      window.currentUser.points=(window.currentUser.points||0)+50;
+      await saveCurrentUser();
+    }
+    document.getElementById('postContent').value='';
+    window.selectedTags=[];
+    window.pendingRecord=null;
+    document.querySelectorAll('.ctag').forEach(t=>t.classList.remove('active'));
+    document.getElementById('recordPreview').style.display='none';
+    document.getElementById('recordPanel').style.display='none';
+    hideLoading();
+    await renderPosts();
+    showToast('게시물이 등록됐습니다! +50P 🎉');
+  } catch(e){
+    hideLoading();
+    showToast('게시 실패: '+e.message);
+  }
+};
+
+window.copyShareLink = function(author){ showToast(`${author}님의 게시물 링크가 복사되었습니다!`); };
+
+window.renderTopUsers = async function(){
+  const el=document.getElementById('topUsers');
+  try{
+    const snap=await getDocs(query(collection(db,'users'),orderBy('totalReps','desc'),limit(5)));
+    const data=snap.docs.map(d=>({uid:d.id,...d.data()}));
+    if(data.length===0){
+      el.innerHTML=`<div style="color:var(--muted);font-size:.8rem;font-family:'Barlow Condensed',sans-serif;text-align:center;padding:.8rem 0;letter-spacing:1px;">아직 유저가 없습니다</div>`;
+      return;
+    }
+    el.innerHTML=data.map((u,i)=>{
+      const isMe=window.currentUid&&u.uid===window.currentUid;
+      return `<div class="top-user-row">
+        <div class="tu-rank">${i+1}</div>
+        <div style="font-size:1rem">${u.avatar||'😀'}</div>
+        <div class="tu-name" style="${isMe?'color:var(--accent)':''}">${u.name}${isMe?' (나)':''}</div>
+        <div class="tu-pts">${(u.totalReps||0).toLocaleString()}회</div>
+      </div>`;
+    }).join('');
+  } catch(e){ el.innerHTML=''; }
+};
+
+// ═══════════════════════════════════════
+// 챌린지 — 참여/진행도 Firestore 연동
+// ═══════════════════════════════════════
+window.joinChallenge = async function(){
+  if(window.currentChIdx===null) return;
+  const c=CHALLENGES[window.currentChIdx];
+  if(!window.currentUser.joinedChallenges) window.currentUser.joinedChallenges=[];
+  if(window.currentUser.joinedChallenges.includes(c.id)){
+    closeChModal(); showToast('이미 참여 중인 챌린지입니다'); return;
+  }
+  window.currentUser.joinedChallenges.push(c.id);
+  if(!window.currentUser.challengeProgress) window.currentUser.challengeProgress={};
+  window.currentUser.challengeProgress[c.id]={current:0,target:c.target};
+  window.currentUser.points=(window.currentUser.points||0)+100;
+  await saveCurrentUser();
+  closeChModal();
+  renderChallenges();
+  showToast('챌린지 참여 완료! +100P 🏆');
+  setTimeout(()=>goPage('workout'),1500);
+};
+
+// ═══════════════════════════════════════
+// 프로필 — Firestore
+// ═══════════════════════════════════════
+window.openProfile = async function(){
+  if(!window.currentUser) return;
+  const u=window.currentUser;
+  document.getElementById('profileAvBig').textContent=u.avatar||'😀';
+  document.getElementById('profileName').textContent=u.name;
+  document.getElementById('profileEmail').textContent=u.email||'';
+  document.getElementById('ps-total').textContent=(u.totalReps||0).toLocaleString();
+  document.getElementById('ps-pts').textContent=(u.points||0).toLocaleString();
+  const rank=await getRankPosition();
+  document.getElementById('ps-rank').textContent=rank>0?'#'+rank:'—';
+  const EX_KR={pushup:'푸쉬업',pullup:'턱걸이',squat:'스쿼트',situp:'싯업',dips:'딥스'};
+  const bests=u.bests||{};
+  document.getElementById('profileExList').innerHTML=
+    Object.entries(EX_KR).map(([k,v])=>`
+      <div class="profile-ex-row">
+        <div class="profile-ex-name">${v}</div>
+        <div class="profile-ex-best">${bests[k]||0}회</div>
+      </div>`).join('');
+  document.getElementById('profileModal').classList.add('open');
+};
+window.closeProfile = function(){ document.getElementById('profileModal').classList.remove('open'); };
+
+// ═══════════════════════════════════════
+// 세트 저장 — Firestore 연동
+// ═══════════════════════════════════════
+window._origSaveSet = window.saveSet;
+window.saveSetFirebase = async function(){
+  if(window.currentUser){
+    // Firestore atomic increment
+    await updateDoc(doc(db,'users',window.currentUid),{
+      totalReps: increment(window._lastRepCount||0),
+      [`bests.${window.currentEx}`]: Math.max(window.currentUser.bests?.[window.currentEx]||0, window._lastRepCount||0),
+      points: increment(window._lastRepCount||0)
+    });
+    // 로컬 currentUser 동기화
+    const fresh=await getDoc(doc(db,'users',window.currentUid));
+    window.currentUser={uid:window.currentUid,...fresh.data()};
+    updateNavUI();
+  }
+};
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+initReveal();
+// onAuthStateChanged가 로그인 여부 판단 — 여기서는 로딩만 표시
+showLoading('IRONBODY 로딩 중...');
+setTimeout(()=>{
+  if(!auth.currentUser) hideLoading();
+},3000);
+
+</script>
 <style>
 :root{
   --bg:#070809;--bg2:#0d0f11;--bg3:#131619;--surface:#1a1d21;
@@ -863,148 +1455,70 @@ nav{position:fixed;top:0;width:100%;z-index:600;height:60px;
 
 <script>
 // ═══════════════════════════════════════════
-// STATE — 실제 유저 데이터만 사용
+// 기존 localStorage 초기화 (마이그레이션)
 // ═══════════════════════════════════════════
-// 구버전 더미 데이터 완전 초기화 (최초 1회)
-if(!localStorage.getItem('ib_v2_clean')){
-  localStorage.removeItem('ib_posts');
-  // 유저 목록에서 데모 계정(id:999) 제거
-  const rawUsers = JSON.parse(localStorage.getItem('ib_users')||'[]');
-  const cleanUsers = rawUsers.filter(u => u.id !== 999);
-  localStorage.setItem('ib_users', JSON.stringify(cleanUsers));
-  localStorage.setItem('ib_v2_clean','1');
-}
+localStorage.removeItem('ib_users');
+localStorage.removeItem('ib_current');
+localStorage.removeItem('ib_posts');
 
-let users = JSON.parse(localStorage.getItem('ib_users')||'[]');
-let currentUser = JSON.parse(localStorage.getItem('ib_current')||'null');
-// 데모 계정으로 로그인된 상태면 로그아웃 처리
-if(currentUser && currentUser.id === 999){
-  currentUser = null;
-  localStorage.removeItem('ib_current');
-}
-let posts = JSON.parse(localStorage.getItem('ib_posts')||'[]');
-
-let selectedTags = [];
-let currentChIdx = null;
-// 운동 후 커뮤니티에 첨부할 기록
+// Firebase module에서 window.*로 노출된 함수들을 사용
+// 아래는 운동 AI / UI 전용 로컬 상태만 유지
+let selectedTags  = [];
+let currentChIdx  = null;
 let pendingRecord = null;
+let posts         = [];
 
-// ═══════════════════════════════════════════
-// AUTH
-// ═══════════════════════════════════════════
 const AVATARS = ['😀','💪','🔥','⚔️','🦁','🐉','✨','👑','🏋️','🎯'];
 
-function switchAuthTab(tab){
-  document.querySelectorAll('.auth-tab').forEach((t,i)=>{
-    t.classList.toggle('active', (i===0&&tab==='login')||(i===1&&tab==='signup'));
-  });
-  document.getElementById('loginForm').classList.toggle('hidden', tab!=='login');
-  document.getElementById('signupForm').classList.toggle('hidden', tab!=='signup');
-}
-
-function doLogin(){
-  const email = document.getElementById('loginEmail').value.trim();
-  const pw = document.getElementById('loginPw').value;
-  const errEl = document.getElementById('loginErr');
-  if(!email||!pw){errEl.textContent='이메일과 비밀번호를 입력하세요.';return;}
-  // 항상 최신 localStorage 데이터로 다시 읽기 (핵심 버그 수정)
-  users = JSON.parse(localStorage.getItem('ib_users')||'[]');
-  const user = users.find(u=>u.email===email&&u.pw===pw);
-  if(!user){errEl.textContent='이메일 또는 비밀번호가 올바르지 않습니다.';return;}
-  loginSuccess(user);
-}
-
-function doSignup(){
-  const name = document.getElementById('signupName').value.trim();
-  const email = document.getElementById('signupEmail').value.trim();
-  const pw = document.getElementById('signupPw').value;
-  const errEl = document.getElementById('signupErr');
-  if(!name||!email||!pw){errEl.textContent='모든 항목을 입력하세요.';return;}
-  if(pw.length<6){errEl.textContent='비밀번호는 6자 이상이어야 합니다.';return;}
-  if(users.find(u=>u.email===email)){errEl.textContent='이미 사용 중인 이메일입니다.';return;}
-  const user = {
-    id: Date.now(), name, email, pw,
-    avatar: AVATARS[Math.floor(Math.random()*AVATARS.length)],
-    points: 100, totalReps: 0, sets: [],
-    bests: {pushup:0,pullup:0,squat:0,situp:0,dips:0},
-    joinedChallenges: [], challengeProgress: {},
-    createdAt: new Date().toISOString()
-  };
-  users.push(user);
-  saveUsers();
-  loginSuccess(user);
-}
-
+// ── AUTH 래퍼 (Firebase module로 위임) ──
+function switchAuthTab(tab){ if(window.switchAuthTab) window.switchAuthTab(tab); }
+function doLogin(){ if(window.doLogin) window.doLogin(); }
+function doSignup(){ if(window.doSignup) window.doSignup(); }
 function demoLogin(){
-  let demo = users.find(u=>u.email==='demo@ironbody.kr');
-  if(!demo){
-    demo = {
-      id:999,name:'데모유저',email:'demo@ironbody.kr',pw:'demo123',
-      avatar:'🎮',points:1200,totalReps:340,sets:[],
-      bests:{pushup:42,pullup:8,squat:60,situp:35,dips:15},
-      joinedChallenges:[0],challengeProgress:{0:{current:42,target:100}},
-      createdAt: new Date().toISOString()
-    };
-    users.push(demo);
-    saveUsers();
-  }
-  loginSuccess(demo);
+  // 데모 계정: Firebase Auth에 미리 만들어둔 계정으로 로그인
+  document.getElementById('loginEmail').value='demo@ironbody.kr';
+  document.getElementById('loginPw').value='demo1234';
+  doLogin();
 }
+function doLogout(){ if(window.doLogout) window.doLogout(); }
+function saveCurrentUser(){ if(window.saveCurrentUser) window.saveCurrentUser(); }
+function updateNavUI(){ if(window.updateNavUI) window.updateNavUI(); }
+function openProfile(){ if(window.openProfile) window.openProfile(); }
+function closeProfile(){ if(window.closeProfile) window.closeProfile(); }
 
-function loginSuccess(user){
-  currentUser = user;
-  localStorage.setItem('ib_current', JSON.stringify(user));
-  document.getElementById('authScreen').classList.add('hidden');
-  document.getElementById('mainNav').classList.remove('hidden');
-  if(window.innerWidth<=768) document.getElementById('mobileTabbar').classList.remove('hidden');
-  updateNavUI();
-  goPage('home');
-  // 로그인 후 실제 데이터로 홈 스탯 애니메이션
-  setTimeout(animateHomeStats, 300);
-  showToast(`환영합니다, ${user.name}님! 💪`);
-}
+// 커뮤니티 래퍼
+function renderCommunity(){ if(window.renderCommunity) window.renderCommunity(); }
+function renderPosts(){ if(window.renderPosts) window.renderPosts(); }
+function renderTopUsers(){ if(window.renderTopUsers) window.renderTopUsers(); }
+function renderRecordCard(r){ return window.renderRecordCard?window.renderRecordCard(r):''; }
+function submitPost(){ if(window.submitPost) window.submitPost(); }
+function toggleLike(id,pi){ if(window.toggleLike) window.toggleLike(id,pi); }
+function toggleComments(id){ if(window.toggleComments) window.toggleComments(id); }
+function addComment(id,pi){ if(window.addComment) window.addComment(id,pi); }
+function deletePost(id){ if(window.deletePost) window.deletePost(id); }
+function copyShareLink(a){ if(window.copyShareLink) window.copyShareLink(a); }
 
-function doLogout(){
-  currentUser = null;
-  localStorage.removeItem('ib_current');
-  closeProfile();
-  closeMobileMenu();
-  document.getElementById('mainNav').classList.add('hidden');
-  document.getElementById('mobileTabbar').classList.add('hidden');
-  document.getElementById('authScreen').classList.remove('hidden');
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  stopCam();
-}
+// 랭킹 래퍼
+function renderRanking(){ if(window.renderRanking) window.renderRanking(); }
+function switchRankTab(el,t){ if(window.switchRankTab) window.switchRankTab(el,t); }
+function switchExFilter(el,t){ if(window.switchExFilter) window.switchExFilter(el,t); }
 
-function saveUsers(){
-  localStorage.setItem('ib_users', JSON.stringify(users));
-}
+// 홈스탯 래퍼
+function animateHomeStats(){ if(window.animateHomeStats) window.animateHomeStats(); }
+function refreshHomeStatsNow(){ if(window.refreshHomeStatsNow) window.refreshHomeStatsNow(); }
+function animNum(el,end,dur){ if(window.animNum) window.animNum(el,end,dur); }
 
-function saveCurrentUser(){
-  const idx = users.findIndex(u=>u.id===currentUser.id);
-  if(idx>=0) users[idx]=currentUser;
-  saveUsers();
-  localStorage.setItem('ib_current', JSON.stringify(currentUser));
-  updateNavUI();
-}
+// 챌린지 래퍼
+function joinChallenge(){ if(window.joinChallenge) window.joinChallenge(); }
 
-function updateNavUI(){
-  if(!currentUser)return;
-  document.getElementById('navUsername').textContent = currentUser.name;
-  document.getElementById('navPts').textContent = currentUser.points.toLocaleString();
-  document.getElementById('navAvatar').textContent = currentUser.avatar;
-  // 드로어 유저 정보 업데이트
-  const da=document.getElementById('drawerAvatar');
-  const dn=document.getElementById('drawerName');
-  const dp=document.getElementById('drawerPts');
-  if(da) da.textContent=currentUser.avatar;
-  if(dn) dn.textContent=currentUser.name;
-  if(dp) dp.textContent=(currentUser.points||0).toLocaleString()+' P';
-  const all = users.filter(u=>u.id!==999||u===currentUser);
-  all.sort((a,b)=>b.totalReps-a.totalReps);
-  const rank = all.findIndex(u=>u.id===currentUser.id)+1;
-  document.getElementById('navRank').textContent = rank>0?`랭킹 #${rank}`:'랭킹 —';
-}
+// currentUser 게터 (Firebase module에서 관리)
+function getCurrentUser(){ return window.currentUser; }
+function getCurrentUid(){ return window.currentUid; }
+
+// ═══════════════════════════════════════════
+// AUTH (더미 — Firebase module이 실제 처리)
+// ═══════════════════════════════════════════
+const AVATARS = ['😀','💪','🔥','⚔️','🦁','🐉','✨','👑','🏋️','🎯'];
 
 // ═══════════════════════════════════════════
 // PAGE ROUTING
@@ -1015,43 +1529,17 @@ function goPage(name){
   document.getElementById('page-'+name).classList.add('active');
   const ni=document.getElementById('ni-'+name);
   if(ni) ni.classList.add('active');
-  // 모바일 탭바 active 동기화
   document.querySelectorAll('.tab-item').forEach(t=>t.classList.remove('active'));
   const tab=document.getElementById('tab-'+name);
   if(tab) tab.classList.add('active');
-  // 드로어 닫기
   closeMobileMenu();
-  // 페이지 상단으로
   window.scrollTo(0,0);
-  // 페이지 진입 시 reveal 재초기화
   setTimeout(initReveal, 50);
   if(name==='ranking') renderRanking();
   if(name==='challenge') renderChallenges();
   if(name==='community') renderCommunity();
   if(name==='home') animateHomeStats();
 }
-
-// ═══════════════════════════════════════════
-// HOME STATS — 실시간 실제 데이터 반영
-// ═══════════════════════════════════════════
-let homeStatsInterval = null;
-
-function getHomeStats(){
-  const allUsers = JSON.parse(localStorage.getItem('ib_users')||'[]').filter(u=>u.id!==999);
-  const totalRepsAll = allUsers.reduce((sum,u)=>sum+(u.totalReps||0), 0);
-  // 참여 중인 챌린지: 모든 유저의 joinedChallenges 합산 (중복 제거)
-  const joinedSet = new Set();
-  allUsers.forEach(u=>(u.joinedChallenges||[]).forEach(cid=>joinedSet.add(cid)));
-  const activeChallenges = joinedSet.size;
-  return {
-    users: allUsers.length,
-    totalReps: totalRepsAll,
-    challenges: activeChallenges,
-  };
-}
-
-function animateHomeStats(){
-  const stats = getHomeStats();
   const e1=document.getElementById('hs1');
   const e2=document.getElementById('hs2');
   const e3=document.getElementById('hs3');
@@ -1066,57 +1554,6 @@ function animateHomeStats(){
     e4.style.color='var(--accent3)';
     e4.style.animation='blink 1.5s infinite';
   }
-
-  // 30초마다 수치를 실시간 갱신 (홈 페이지 활성 시)
-  clearInterval(homeStatsInterval);
-  homeStatsInterval = setInterval(()=>{
-    if(!document.getElementById('page-home').classList.contains('active')) return;
-    const fresh = getHomeStats();
-    updateStatSmoothly(e1, fresh.users);
-    updateStatSmoothly(e2, fresh.totalReps);
-    updateStatSmoothly(e3, fresh.challenges);
-  }, 30000);
-}
-
-// 숫자가 바뀔 때 부드럽게 전환
-function updateStatSmoothly(el, newVal){
-  if(!el) return;
-  const raw = el.textContent.replace(/,/g,'');
-  const current = parseInt(raw)||0;
-  if(current===newVal) return;
-  // 증가 시 짧은 카운트업, 감소 시 즉시 변경
-  if(newVal > current){
-    animNum(el, newVal, 600);
-  } else {
-    el.textContent = newVal.toLocaleString();
-  }
-  // 변경 시 살짝 강조 효과
-  el.style.transition='color .3s';
-  el.style.color='var(--accent)';
-  setTimeout(()=>{
-    el.style.color='';
-  }, 800);
-}
-
-function animNum(el, end, dur){
-  if(!el) return;
-  let start=0, t0=null;
-  const step=(ts)=>{
-    if(!t0) t0=ts;
-    const p=Math.min((ts-t0)/dur,1);
-    el.textContent=Math.floor(p*end).toLocaleString();
-    if(p<1) requestAnimationFrame(step);
-  };
-  requestAnimationFrame(step);
-}
-
-// 운동 완료/세트 저장마다 홈 스탯 즉시 반영
-function refreshHomeStatsNow(){
-  if(!document.getElementById('page-home').classList.contains('active')) return;
-  const stats = getHomeStats();
-  updateStatSmoothly(document.getElementById('hs1'), stats.users);
-  updateStatSmoothly(document.getElementById('hs2'), stats.totalReps);
-  updateStatSmoothly(document.getElementById('hs3'), stats.challenges);
 }
 
 // ═══════════════════════════════════════════
@@ -1420,19 +1857,23 @@ function processRep(angle, cfg, acc){
   if(counted){
     repCount++;
     totalReps++;
+    window._lastRepCount = repCount;
     document.getElementById('mRep').textContent=repCount;
     document.getElementById('mTotal').textContent=totalReps;
     popEl('mRep');
     flashRep();
     const fb=cfg.upFb.replace('{{n}}',repCount);
     setFb(fb,'good');
-    if(currentUser){
-      currentUser.totalReps=totalReps;
-      if(repCount>(currentUser.bests[currentEx]||0)) currentUser.bests[currentEx]=repCount;
-      currentUser.points+=2;
-      saveCurrentUser();
+    if(window.currentUser){
+      window.currentUser.totalReps=(window.currentUser.totalReps||0)+1;
+      if(repCount>(window.currentUser.bests?.[currentEx]||0)){
+        if(!window.currentUser.bests) window.currentUser.bests={};
+        window.currentUser.bests[currentEx]=repCount;
+      }
+      window.currentUser.points=(window.currentUser.points||0)+2;
+      // Firebase에 비동기 저장 (UI 블로킹 없음)
+      if(window.saveCurrentUser) window.saveCurrentUser();
     }
-    // Update challenge progress
     updateChallengeProgress();
   }
 }
@@ -1533,25 +1974,25 @@ function saveSet(){
   setCount++;
   const setData={set:setCount,ex:currentEx,reps:repCount,time:fmtTime(timerSec)};
   sessionSets.push(setData);
-  if(currentUser){
-    currentUser.sets=currentUser.sets||[];
-    currentUser.sets.push({...setData,date:new Date().toISOString()});
-    currentUser.points+=repCount;
-    if(repCount>(currentUser.bests[currentEx]||0)) currentUser.bests[currentEx]=repCount;
-    saveCurrentUser();
+  if(window.currentUser){
+    // Firestore에 세트 기록 저장
+    if(!window.currentUser.sets) window.currentUser.sets=[];
+    window.currentUser.sets.push({...setData,date:new Date().toISOString()});
+    window.currentUser.points=(window.currentUser.points||0)+repCount;
+    if(repCount>(window.currentUser.bests?.[currentEx]||0)){
+      if(!window.currentUser.bests) window.currentUser.bests={};
+      window.currentUser.bests[currentEx]=repCount;
+    }
+    if(window.saveCurrentUser) window.saveCurrentUser();
   }
   renderSetsLog();
-  // 커뮤니티 공유 유도 토스트
   const EX_KR2={pushup:'푸쉬업',pullup:'턱걸이',squat:'스쿼트',situp:'싯업',dips:'딥스'};
   showToast(`세트 ${setCount} 저장! ${EX_KR2[currentEx]||currentEx} ${repCount}회 (+${repCount}P) 🏆`);
-  // 3세트 이상이면 커뮤니티 공유 안내
   if(setCount>=3){
     setTimeout(()=>showToast('💬 커뮤니티에서 기록을 공유해보세요!'),3200);
   }
   resetReps();
   document.getElementById('mSet').textContent=setCount;
-  // 홈 스탯 즉시 반영
-  refreshHomeStatsNow();
 }
 
 function renderSetsLog(){
@@ -1607,66 +2048,8 @@ function popEl(id){
 // ═══════════════════════════════════════════
 let curRankTab='weekly', curExFilter='all';
 
-function getRankData(){
-  // localStorage에서 항상 최신 유저 목록 읽기
-  const allUsers = JSON.parse(localStorage.getItem('ib_users')||'[]');
-  return allUsers
-    .filter(u => u.id !== 999) // 데모 계정 제외
-    .map(u => ({
-      id: u.id,
-      name: u.name,
-      avatar: u.avatar||'😀',
-      points: u.points||0,
-      totalReps: u.totalReps||0,
-      bests: u.bests||{},
-      isMe: currentUser && u.id===currentUser.id,
-      joinedChallenges: u.joinedChallenges||[],
-    }))
-    .sort((a,b) => (b.totalReps*10+b.points) - (a.totalReps*10+a.points));
-}
-
-function renderRanking(){
-  const medals=['gold','silver','bronze'];
-  const medalE=['🥇','🥈','🥉'];
-  const data = getRankData();
-
-  if(data.length===0){
-    document.getElementById('rankList').innerHTML=`
-      <div style="text-align:center;padding:3rem 1rem;color:var(--muted);font-family:'Barlow Condensed',sans-serif;font-size:.9rem;letter-spacing:1px;">
-        아직 등록된 유저가 없습니다.<br>운동을 시작해서 첫 번째 랭커가 되세요! 🏆
-      </div>`;
-    return;
-  }
-
-  document.getElementById('rankList').innerHTML=data.map((r,i)=>{
-    const rank=i+1;
-    const mc=rank<=3?medals[rank-1]:'norm';
-    const me=r.isMe?'me-row':'';
-    const score=curExFilter!=='all'
-      ?(r.bests&&r.bests[curExFilter]?r.bests[curExFilter]+'회':'—')
-      :(r.totalReps*10+r.points).toLocaleString();
-    const borderStyle=rank===1?'border-color:var(--gold)':rank===2?'border-color:var(--silver)':rank===3?'border-color:var(--bronze)':r.isMe?'border-color:var(--accent)':'';
-    const chCount=r.joinedChallenges.length;
-    const badges=[];
-    if(r.totalReps>=1000) badges.push('💪 1000+');
-    if(chCount>0) badges.push(`🏆 챌린지${chCount}`);
-    if(r.isMe) badges.push('나');
-    return `
-    <div class="rank-row ${rank<=3?'r'+rank:''} ${me}">
-      <div class="rn ${mc}">${rank<=3?medalE[rank-1]:rank}</div>
-      <div class="ru">
-        <div class="rav" style="${borderStyle}">${r.avatar}</div>
-        <div>
-          <div class="rname" style="${r.isMe?'color:var(--accent)':''}">${r.name}${r.isMe?' (나)':''}</div>
-          <div class="rtag">총 ${r.totalReps.toLocaleString()}회</div>
-        </div>
-      </div>
-      <div class="rscore ${rank>3&&!r.isMe?'dim':''}">${score}</div>
-      <div class="rch eq">${r.points.toLocaleString()}P</div>
-      <div class="rbdg">${badges.map(b=>`<span class="bdg">${b}</span>`).join('')}</div>
-    </div>`;
-  }).join('');
-}
+// getRankData / renderRanking / switchRankTab / switchExFilter
+// → Firebase module(window.*)에서 처리
 
 function switchRankTab(el,type){
   curRankTab=type;
@@ -1776,15 +2159,15 @@ const CHALLENGES=[
 ];
 
 function renderChallenges(){
-  // My challenges
+  const cu = window.currentUser;
   const myChEl=document.getElementById('myChList');
-  if(!currentUser||!currentUser.joinedChallenges||currentUser.joinedChallenges.length===0){
+  if(!cu||!cu.joinedChallenges||cu.joinedChallenges.length===0){
     myChEl.innerHTML='<div style="color:var(--muted);font-size:.85rem;font-family:\'Barlow Condensed\',sans-serif;letter-spacing:1px;padding:.8rem 0;">참여 중인 챌린지가 없습니다. 아래에서 챌린지에 참여해보세요!</div>';
   } else {
-    myChEl.innerHTML=currentUser.joinedChallenges.map(cid=>{
+    myChEl.innerHTML=cu.joinedChallenges.map(cid=>{
       const c=CHALLENGES[cid];
       if(!c)return '';
-      const prog=currentUser.challengeProgress&&currentUser.challengeProgress[cid];
+      const prog=cu.challengeProgress&&cu.challengeProgress[cid];
       const cur=prog?prog.current:0;
       const pct=Math.min(100,Math.round(cur/c.target*100));
       return `<div class="my-ch-row">
@@ -1800,10 +2183,8 @@ function renderChallenges(){
       </div>`;
     }).join('');
   }
-
-  // All challenges
   document.getElementById('chGrid').innerHTML=CHALLENGES.map((c,i)=>{
-    const joined=currentUser&&currentUser.joinedChallenges&&currentUser.joinedChallenges.includes(c.id);
+    const joined=cu&&cu.joinedChallenges&&cu.joinedChallenges.includes(c.id);
     return `<div class="ch-card" onclick="openChModal(${i})">
       <div class="ch-accent-bar"></div>
       <div class="ch-top">
@@ -1854,145 +2235,43 @@ function joinChallenge(){
 }
 
 function updateChallengeProgress(){
-  if(!currentUser||!currentUser.joinedChallenges) return;
-  currentUser.joinedChallenges.forEach(cid=>{
+  const cu=window.currentUser;
+  if(!cu||!cu.joinedChallenges) return;
+  cu.joinedChallenges.forEach(cid=>{
     const c=CHALLENGES[cid];
-    if(!c||!currentUser.challengeProgress) return;
-    const prog=currentUser.challengeProgress[cid];
+    if(!c||!cu.challengeProgress) return;
+    const prog=cu.challengeProgress[cid];
     if(!prog) return;
     if(c.ex===currentEx||c.ex==='all'){
-      prog.current=Math.min(c.target, (prog.current||0)+1);
+      prog.current=Math.min(c.target,(prog.current||0)+1);
       if(prog.current>=c.target){
         showToast(`🎉 챌린지 "${c.name}" 완료! 포인트 획득!`);
-        currentUser.points+=parseInt(c.reward.match(/\d+,?\d*/)[0].replace(',',''));
+        cu.points=(cu.points||0)+parseInt(c.reward.match(/\d+,?\d*/)[0].replace(',',''));
       }
     }
   });
-  saveCurrentUser();
+  if(window.saveCurrentUser) window.saveCurrentUser();
 }
 
 // ═══════════════════════════════════════════
-// COMMUNITY
+// COMMUNITY — 기록 첨부 기능 (attachRecord 등 로컬 세션 기반)
 // ═══════════════════════════════════════════
-function renderCommunity(){
-  if(currentUser){
-    document.getElementById('composeAvatar').textContent=currentUser.avatar;
-  }
-  renderPosts();
-  renderTopUsers();
-}
-
-const EX_KR_MAP={pushup:'푸쉬업',pullup:'턱걸이',squat:'스쿼트',situp:'싯업',dips:'딥스'};
-
-function renderPosts(){
-  const feed=document.getElementById('postsFeed');
-  posts = JSON.parse(localStorage.getItem('ib_posts')||'[]');
-
-  if(posts.length===0){
-    feed.innerHTML=`
-      <div style="text-align:center;padding:3rem 1rem;color:var(--muted);">
-        <div style="font-size:2.5rem;margin-bottom:1rem;">💪</div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1rem;letter-spacing:1px;">
-          아직 게시물이 없습니다.<br>첫 번째로 운동 기록을 공유해보세요!
-        </div>
-      </div>`;
-    return;
-  }
-
-  feed.innerHTML=posts.map((p,pi)=>{
-    const isMyPost = currentUser && p.userId === currentUser.id;
-    const tagColor = p.tag==='인증'?'var(--green)':p.tag==='챌린지'?'var(--accent2)':p.tag==='팁'?'var(--accent3)':'var(--muted)';
-    const tagBg = p.tag==='인증'?'rgba(74,222,128,.08)':p.tag==='챌린지'?'rgba(255,60,60,.08)':p.tag==='팁'?'rgba(0,212,255,.08)':'rgba(100,100,100,.08)';
-    return `
-    <div class="post-card reveal" id="post-${p.id}">
-      <div class="post-head">
-        <div class="post-avatar">${p.avatar||'😀'}</div>
-        <div class="post-meta">
-          <div class="post-name">${p.author}</div>
-          <div class="post-time">${p.time}</div>
-        </div>
-        <div class="post-tag-badge" style="color:${tagColor};border-color:${tagColor};background:${tagBg}">#${p.tag}</div>
-        ${isMyPost?`<button onclick="deletePost(${pi})" style="background:none;border:none;color:var(--muted2);cursor:pointer;font-size:.8rem;margin-left:.4rem;padding:.2rem;" title="삭제">🗑</button>`:''}
-      </div>
-      <div class="post-body">${p.body.replace(/\n/g,'<br>')}</div>
-      ${p.record ? renderRecordCard(p.record) : ''}
-      <div class="post-actions">
-        <button class="post-action ${p.liked?'liked':''}" onclick="toggleLike(${pi})">
-          ${p.liked?'❤️':'🤍'} ${p.likes}
-        </button>
-        <button class="post-action" onclick="toggleComments(${p.id})">💬 ${(p.comments||[]).length}</button>
-        <button class="post-action" onclick="copyShareLink('${p.author}')">↗ 공유</button>
-      </div>
-      <div class="comments-section" id="cmts-${p.id}">
-        ${(p.comments||[]).map(c=>`
-        <div class="comment-row">
-          <div class="comment-av">${c.av||'😀'}</div>
-          <div class="comment-body"><div class="comment-author">${c.author}</div>${c.body}</div>
-        </div>`).join('')}
-        <div class="comment-input-row">
-          <input class="comment-input" id="ci-${p.id}" placeholder="댓글 작성..." onkeydown="if(event.key==='Enter')addComment(${pi},${p.id})">
-          <button class="btn btn-accent btn-xs" onclick="addComment(${pi},${p.id})">등록</button>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-  initReveal();
-}
-
-function renderRecordCard(record){
-  const EX_ICON={pushup:'💪',pullup:'⬆️',squat:'🦵',situp:'🔥',dips:'🏋️'};
-  const icon = EX_ICON[record.exercise]||'💪';
-  const exName = EX_KR_MAP[record.exercise]||record.exercise;
-  const sets = record.sets||[];
-  if(sets.length>0){
-    const totalReps = sets.reduce((s,st)=>s+st.reps,0);
-    return `<div class="post-record">
-      <div class="prec-item">
-        <div class="prec-val">${icon} ${exName}</div>
-        <div class="prec-lbl">운동 종목</div>
-      </div>
-      <div class="prec-item">
-        <div class="prec-val">${sets.length}</div>
-        <div class="prec-lbl">세트</div>
-      </div>
-      <div class="prec-item">
-        <div class="prec-val">${totalReps}</div>
-        <div class="prec-lbl">총 횟수</div>
-      </div>
-      ${record.duration?`<div class="prec-item"><div class="prec-val" style="color:var(--accent3)">${record.duration}</div><div class="prec-lbl">운동 시간</div></div>`:''}
-    </div>`;
-  }
-  // 단일 기록
-  return `<div class="post-record">
-    <div class="prec-item">
-      <div class="prec-val">${icon} ${exName}</div>
-      <div class="prec-lbl">운동 종목</div>
-    </div>
-    <div class="prec-item">
-      <div class="prec-val">${record.reps||0}</div>
-      <div class="prec-lbl">횟수</div>
-    </div>
-    ${record.time?`<div class="prec-item"><div class="prec-val" style="color:var(--accent3)">${record.time}</div><div class="prec-lbl">운동 시간</div></div>`:''}
-  </div>`;
-}
-
-// ── 기록 첨부 기능 ──────────────────────────
+// COMMUNITY — 기록 첨부 기능 (attachRecord 등 로컬 세션 기반)
+// ═══════════════════════════════════════════
 function attachRecord(){
   const panel=document.getElementById('recordPanel');
   const isOpen = panel.style.display==='block';
   if(isOpen){ panel.style.display='none'; return; }
 
-  // 이 세션의 세트 기록 + 유저의 전체 기록에서 최근 10개
+  const EX_KR_MAP2=window.EX_KR_MAP||{pushup:'푸쉬업',pullup:'턱걸이',squat:'스쿼트',situp:'싯업',dips:'딥스'};
   const sessionRecs = sessionSets.map(s=>({
-    label:`[이번 세션] ${EX_KR_MAP[s.ex]||s.ex} ${s.reps}회`,
+    label:`[이번 세션] ${EX_KR_MAP2[s.ex]||s.ex} ${s.reps}회`,
     data:{ exercise:s.ex, sets:[s], duration:s.time }
   }));
-
-  const userSets = (currentUser&&currentUser.sets||[]).slice(-10).reverse().map(s=>({
-    label:`${EX_KR_MAP[s.ex]||s.ex} ${s.reps}회 (${s.date?new Date(s.date).toLocaleDateString('ko-KR'):'이전'})`,
+  const userSets = ((window.currentUser&&window.currentUser.sets)||[]).slice(-10).reverse().map(s=>({
+    label:`${EX_KR_MAP2[s.ex]||s.ex} ${s.reps}회 (${s.date?new Date(s.date).toLocaleDateString('ko-KR'):'이전'})`,
     data:{ exercise:s.ex, sets:[s], duration:s.time }
   }));
-
   const all=[...sessionRecs, ...userSets];
   const listEl=document.getElementById('recordList');
   if(all.length===0){
@@ -2034,127 +2313,19 @@ function removeRecord(){
 }
 
 // ── 게시물 올리기 ────────────────────────────
-function submitPost(){
-  const body=document.getElementById('postContent').value.trim();
-  if(!body){showToast('내용을 입력해주세요');return;}
-  const now=new Date();
-  const timeStr=`${now.getFullYear()}.${now.getMonth()+1}.${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-  const newPost={
-    id:Date.now(),
-    userId:currentUser?.id,
-    author:currentUser?.name||'익명',
-    avatar:currentUser?.avatar||'😀',
-    tag:selectedTags.length?selectedTags[0]:'운동',
-    body,
-    record:pendingRecord||null,
-    likes:0, liked:false,
-    time:timeStr,
-    comments:[]
-  };
-  posts.unshift(newPost);
-  savePosts();
-  // 초기화
-  document.getElementById('postContent').value='';
-  selectedTags=[];
-  pendingRecord=null;
-  document.querySelectorAll('.ctag').forEach(t=>t.classList.remove('active'));
-  document.getElementById('recordPreview').style.display='none';
-  document.getElementById('recordPanel').style.display='none';
-  renderPosts();
-  if(currentUser){currentUser.points+=50;saveCurrentUser();}
-  showToast('게시물이 등록됐습니다! +50P 🎉');
-}
-
-function deletePost(idx){
-  if(!confirm('이 게시물을 삭제하시겠습니까?')) return;
-  posts.splice(idx,1);
-  savePosts(); renderPosts();
-  showToast('게시물이 삭제됐습니다');
-}
-
-function toggleLike(idx){
-  posts[idx].liked=!posts[idx].liked;
-  posts[idx].likes+=posts[idx].liked?1:-1;
-  savePosts(); renderPosts();
-}
-
-function toggleComments(id){
-  const el=document.getElementById('cmts-'+id);
-  if(el) el.classList.toggle('open');
-}
-
-function addComment(pidx, id){
-  const inp=document.getElementById('ci-'+id);
-  const body=inp.value.trim();
-  if(!body)return;
-  if(!posts[pidx].comments) posts[pidx].comments=[];
-  posts[pidx].comments.push({
-    author:currentUser?.name||'익명',
-    av:currentUser?.avatar||'😀',
-    body
-  });
-  savePosts(); renderPosts();
-  setTimeout(()=>{const el=document.getElementById('cmts-'+id);if(el)el.classList.add('open');},50);
-}
-
-function copyShareLink(author){
-  showToast(`${author}님의 게시물 링크가 복사되었습니다!`);
-}
+function submitPost(){ if(window.submitPost) window.submitPost(); }
+function deletePost(id){ if(window.deletePost) window.deletePost(id); }
+function toggleLike(id,pi){ if(window.toggleLike) window.toggleLike(id,pi); }
+function toggleComments(id){ if(window.toggleComments) window.toggleComments(id); }
+function addComment(id,pi){ if(window.addComment) window.addComment(id,pi); }
+function copyShareLink(a){ if(window.copyShareLink) window.copyShareLink(a); }
+function renderTopUsers(){ if(window.renderTopUsers) window.renderTopUsers(); }
 
 function toggleTag(el, tag){
   el.classList.toggle('active');
   if(selectedTags.includes(tag)) selectedTags=selectedTags.filter(t=>t!==tag);
   else selectedTags.push(tag);
 }
-
-function savePosts(){localStorage.setItem('ib_posts',JSON.stringify(posts));}
-
-function renderTopUsers(){
-  const el=document.getElementById('topUsers');
-  const allUsers=JSON.parse(localStorage.getItem('ib_users')||'[]').filter(u=>u.id!==999);
-  allUsers.sort((a,b)=>(b.totalReps||0)-(a.totalReps||0));
-  if(allUsers.length===0){
-    el.innerHTML=`<div style="color:var(--muted);font-size:.8rem;font-family:'Barlow Condensed',sans-serif;text-align:center;padding:.8rem 0;letter-spacing:1px;">아직 유저가 없습니다</div>`;
-    return;
-  }
-  el.innerHTML=allUsers.slice(0,5).map((u,i)=>{
-    const isMe=currentUser&&u.id===currentUser.id;
-    return `<div class="top-user-row">
-      <div class="tu-rank">${i+1}</div>
-      <div style="font-size:1rem">${u.avatar||'😀'}</div>
-      <div class="tu-name" style="${isMe?'color:var(--accent)':''}">${u.name}${isMe?' (나)':''}</div>
-      <div class="tu-pts">${(u.totalReps||0).toLocaleString()}회</div>
-    </div>`;
-  }).join('');
-}
-
-// ═══════════════════════════════════════════
-// PROFILE
-// ═══════════════════════════════════════════
-function openProfile(){
-  if(!currentUser)return;
-  document.getElementById('profileAvBig').textContent=currentUser.avatar;
-  document.getElementById('profileName').textContent=currentUser.name;
-  document.getElementById('profileEmail').textContent=currentUser.email;
-  document.getElementById('ps-total').textContent=(currentUser.totalReps||0).toLocaleString();
-  document.getElementById('ps-pts').textContent=(currentUser.points||0).toLocaleString();
-  const all=users.filter(u=>u.totalReps>0);
-  all.sort((a,b)=>b.totalReps-a.totalReps);
-  const rank=all.findIndex(u=>u.id===currentUser.id);
-  document.getElementById('ps-rank').textContent=rank>=0?'#'+(rank+1):'—';
-
-  const EX_KR={pushup:'푸쉬업',pullup:'턱걸이',squat:'스쿼트',situp:'싯업',dips:'딥스'};
-  const bests=currentUser.bests||{};
-  document.getElementById('profileExList').innerHTML=
-    Object.entries(EX_KR).map(([k,v])=>`
-      <div class="profile-ex-row">
-        <div class="profile-ex-name">${v}</div>
-        <div class="profile-ex-best">${bests[k]||0}회</div>
-      </div>`).join('');
-
-  document.getElementById('profileModal').classList.add('open');
-}
-function closeProfile(){document.getElementById('profileModal').classList.remove('open');}
 
 // ═══════════════════════════════════════════
 // CUSTOM CURSOR
@@ -2164,21 +2335,20 @@ function closeProfile(){document.getElementById('profileModal').classList.remove
   const dot=document.getElementById('cur');
   const ring=document.getElementById('cur-ring');
   if(!dot||!ring) return;
-  let mx=0,my=0,rx=0,ry=0,raf;
+  let mx=0,my=0,rx=0,ry=0;
   document.addEventListener('mousemove',e=>{
     mx=e.clientX; my=e.clientY;
     dot.style.left=mx+'px'; dot.style.top=my+'px';
   });
-  function animRing(){
+  (function animRing(){
     rx+=(mx-rx)*.13; ry+=(my-ry)*.13;
     ring.style.left=rx+'px'; ring.style.top=ry+'px';
-    raf=requestAnimationFrame(animRing);
-  }
-  animRing();
+    requestAnimationFrame(animRing);
+  })();
   document.addEventListener('mouseover',e=>{
     const t=e.target.closest('button,a,[onclick],[role="button"],.ex-btn,.ch-card,.rank-row,.tab-item,.drawer-item');
-    if(t){dot.classList.add('hov');ring.classList.add('hov');}
-    else{dot.classList.remove('hov');ring.classList.remove('hov');}
+    dot.classList.toggle('hov',!!t);
+    ring.classList.toggle('hov',!!t);
   });
 })();
 
@@ -2186,13 +2356,14 @@ function closeProfile(){document.getElementById('profileModal').classList.remove
 // SCROLL REVEAL
 // ═══════════════════════════════════════════
 function initReveal(){
-  const els=document.querySelectorAll('.reveal');
+  const els=document.querySelectorAll('.reveal:not(.visible)');
   if(!els.length) return;
   const obs=new IntersectionObserver(entries=>{
     entries.forEach(e=>{if(e.isIntersecting) e.target.classList.add('visible');});
-  },{threshold:.12,rootMargin:'0px 0px -40px 0px'});
+  },{threshold:.1,rootMargin:'0px 0px -30px 0px'});
   els.forEach(el=>obs.observe(el));
 }
+initReveal();
 
 // ═══════════════════════════════════════════
 // MOBILE DRAWER
@@ -2203,14 +2374,13 @@ function toggleMobileMenu(){
   const ham=document.getElementById('hamburger');
   const open=drawer.classList.toggle('open');
   backdrop.classList.toggle('open',open);
-  ham.classList.toggle('open',open);
+  if(ham) ham.classList.toggle('open',open);
   document.body.style.overflow=open?'hidden':'';
 }
 function closeMobileMenu(){
-  document.getElementById('mobileDrawer').classList.remove('open');
-  document.getElementById('drawerBackdrop').classList.remove('open');
-  const ham=document.getElementById('hamburger');
-  if(ham) ham.classList.remove('open');
+  document.getElementById('mobileDrawer')?.classList.remove('open');
+  document.getElementById('drawerBackdrop')?.classList.remove('open');
+  document.getElementById('hamburger')?.classList.remove('open');
   document.body.style.overflow='';
 }
 
@@ -2220,26 +2390,11 @@ function closeMobileMenu(){
 let toastTimer=null;
 function showToast(msg){
   const t=document.getElementById('toast');
+  if(!t) return;
   t.textContent=msg; t.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>t.classList.remove('show'),3000);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),3200);
 }
-
-// ═══════════════════════════════════════════
-// INIT
-// ═══════════════════════════════════════════
-(function init(){
-  initReveal();
-  if(currentUser){
-    document.getElementById('authScreen').classList.add('hidden');
-    document.getElementById('mainNav').classList.remove('hidden');
-    // 모바일 탭바 표시
-    if(window.innerWidth<=768) document.getElementById('mobileTabbar').classList.remove('hidden');
-    updateNavUI();
-    goPage('home');
-    animateHomeStats();
-  }
-})();
 </script>
 </body>
 </html>
