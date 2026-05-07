@@ -1601,13 +1601,22 @@ let angleSmooth=[];
 let timerSec=0, timerInt=null;
 let sessionSets=[];
 
-// 안정 프레임 카운터 (오카운팅 방지용)
-let stableDownFrames=0;
-let stableUpFrames=0;
-const STABLE_REQUIRED=5; // 5프레임 연속 유지해야 상태 전환
+// ── 빠른 동작 감지를 위한 개선된 파라미터 ──
+// STABLE_REQUIRED: 상태 전환에 필요한 연속 프레임 수
+// 빠른 운동(스피드런) → 2프레임, 일반 → 3프레임으로 동적 조절
+let STABLE_REQUIRED = 2;
 
-// 최소 가시성 임계값 — 이 이하이면 감지 자체를 무시
-const MIN_VISIBILITY=0.55;
+// 최근 속도 계산용 (각도 변화율)
+let prevAngle = null;
+let angleVelocity = 0;         // 프레임당 각도 변화량 (빠르면 클수록 크다)
+const VELOCITY_SMOOTH = 0.4;   // 속도 평활화 계수
+
+// 피크/밸리 트래킹 (스무딩 없는 raw 각도 기반)
+let peakAngle = 0;    // 이번 사이클 최대 각도 (올라온 정점)
+let valleyAngle = 999; // 이번 사이클 최소 각도 (내려간 저점)
+
+// 최소 가시성 임계값
+const MIN_VISIBILITY = 0.55;
 
 // ─────────────────────────────────────────────────────────────
 // 운동별 검증 조건 설명
@@ -1745,13 +1754,32 @@ function calcBestAngle(lm, joints){
 }
 
 function getSmoothedAngle(raw){
+  // 속도 계산 (이전 프레임 대비 각도 변화량)
+  if(prevAngle !== null){
+    const rawVelocity = Math.abs(raw - prevAngle);
+    angleVelocity = angleVelocity*(1-VELOCITY_SMOOTH) + rawVelocity*VELOCITY_SMOOTH;
+  }
+  prevAngle = raw;
+
+  // 빠를수록 스무딩 줄이기 (반응성 향상)
+  // 속도 > 8°/frame → 스무딩 3프레임 (빠른 운동)
+  // 속도 < 3°/frame → 스무딩 6프레임 (느린 운동 / 정지)
+  const smoothFrames = angleVelocity > 8 ? 3 : angleVelocity > 4 ? 4 : 6;
+
+  // STABLE_REQUIRED도 속도에 따라 동적 조절
+  // 빠를수록 더 적은 프레임으로 상태 전환 허용
+  STABLE_REQUIRED = angleVelocity > 8 ? 2 : angleVelocity > 4 ? 2 : 3;
+
   angleSmooth.push(raw);
-  if(angleSmooth.length>10) angleSmooth.shift(); // 10프레임으로 늘림
+  if(angleSmooth.length > smoothFrames) angleSmooth.shift();
   return Math.round(angleSmooth.reduce((a,b)=>a+b,0)/angleSmooth.length);
 }
 
-// 동작 중 최대/최소 각도 추적 (minAngleDiff 검증용)
+// 동작 중 최대/최소 각도 추적 (raw 기반으로 더 정확하게)
 let sessionMinAngle=999, sessionMaxAngle=0;
+// stableDownFrames/stableUpFrames는 함수 밖 스코프 유지
+let stableDownFrames=0;
+let stableUpFrames=0;
 
 function onPoseResults(results){
   const canvas=document.getElementById('outputCanvas');
@@ -1813,76 +1841,78 @@ function processRep(angle, cfg, acc){
   const invertCount=cfg.invertCount;
   let counted=false;
 
-  // 동작 범위 추적
-  if(angle<sessionMinAngle) sessionMinAngle=angle;
-  if(angle>sessionMaxAngle) sessionMaxAngle=angle;
-  const angleDiff=sessionMaxAngle-sessionMinAngle;
+  // raw angle 기반 피크/밸리 항상 추적 (스무딩 전 값보다 반응 빠름)
+  if(angle < sessionMinAngle) sessionMinAngle = angle;
+  if(angle > sessionMaxAngle) sessionMaxAngle = angle;
+  const angleDiff = sessionMaxAngle - sessionMinAngle;
 
   if(!invertCount){
-    // 내려가는 단계
-    if(angle<cfg.down && repState==='up'){
+    // ── 내려가는 단계 감지 ──
+    if(angle < cfg.down && repState==='up'){
       stableDownFrames++;
-      if(stableDownFrames>=STABLE_REQUIRED){
+      if(stableDownFrames >= STABLE_REQUIRED){
         repState='down';
         stableDownFrames=0;
-        sessionMinAngle=angle; sessionMaxAngle=angle; // 범위 리셋
+        // 밸리 리셋 (내려간 순간부터 올라오는 범위 측정)
+        sessionMinAngle=angle; sessionMaxAngle=angle;
         setFb(cfg.downFb,'');
-      } else {
-        setFb('조금 더 내려가세요... ('+stableDownFrames+'/'+STABLE_REQUIRED+')','');
       }
-    } else if(angle>=cfg.down){
+    } else if(angle >= cfg.down){
       stableDownFrames=0;
     }
-    // 올라오는 단계
-    if(angle>cfg.up && repState==='down'){
+
+    // ── 올라오는 단계 감지 ──
+    if(angle > cfg.up && repState==='down'){
       stableUpFrames++;
-      if(stableUpFrames>=STABLE_REQUIRED){
-        // 핵심: 각도 변화량이 충분해야만 카운트
-        if(angleDiff>=cfg.minAngleDiff){
+      if(stableUpFrames >= STABLE_REQUIRED){
+        if(angleDiff >= cfg.minAngleDiff){
           counted=true;
         } else {
-          setFb('동작이 너무 작습니다! 더 크게 움직이세요 (현재 변화량: '+angleDiff+'°)','warn');
+          setFb('동작이 너무 작습니다! 더 크게 움직이세요 (변화: '+angleDiff+'°/필요: '+cfg.minAngleDiff+'°)','warn');
         }
         repState='up';
         stableUpFrames=0;
         stableDownFrames=0;
         sessionMinAngle=999; sessionMaxAngle=0;
       }
-    } else if(angle<=cfg.up){
+    } else if(angle <= cfg.up){
       stableUpFrames=0;
     }
+
     // 진행률 바
     if(repState==='up'){
       const pct=Math.max(0,Math.min(100,(1-(angle/180))*100));
       document.getElementById('repProgressFill').style.width=pct+'%';
     }
+
   } else {
-    // 반전 운동 (턱걸이, 싯업)
-    if(angle>cfg.down && repState==='up'){
+    // ── 반전 운동 (턱걸이, 싯업) ──
+    if(angle > cfg.down && repState==='up'){
       stableDownFrames++;
-      if(stableDownFrames>=STABLE_REQUIRED){
+      if(stableDownFrames >= STABLE_REQUIRED){
         repState='down';
         stableDownFrames=0;
         sessionMinAngle=angle; sessionMaxAngle=angle;
         setFb(cfg.downFb,'');
       }
-    } else if(angle<=cfg.down){
+    } else if(angle <= cfg.down){
       stableDownFrames=0;
     }
-    if(angle<cfg.up && repState==='down'){
+
+    if(angle < cfg.up && repState==='down'){
       stableUpFrames++;
-      if(stableUpFrames>=STABLE_REQUIRED){
-        if(angleDiff>=cfg.minAngleDiff){
+      if(stableUpFrames >= STABLE_REQUIRED){
+        if(angleDiff >= cfg.minAngleDiff){
           counted=true;
         } else {
-          setFb('동작이 너무 작습니다! 더 크게 움직이세요 (변화량: '+angleDiff+'°)','warn');
+          setFb('동작이 너무 작습니다! 더 크게 움직이세요 (변화: '+angleDiff+'°)','warn');
         }
         repState='up';
         stableUpFrames=0;
         stableDownFrames=0;
         sessionMinAngle=999; sessionMaxAngle=0;
       }
-    } else if(angle>=cfg.up){
+    } else if(angle >= cfg.up){
       stableUpFrames=0;
     }
   }
@@ -1997,6 +2027,9 @@ function resetReps(){
   repCount=0; repState='up'; angleSmooth=[];
   stableDownFrames=0; stableUpFrames=0;
   sessionMinAngle=999; sessionMaxAngle=0;
+  prevAngle=null; angleVelocity=0;
+  peakAngle=0; valleyAngle=999;
+  STABLE_REQUIRED=2;
   document.getElementById('mRep').textContent='0';
   document.getElementById('repProgressFill').style.width='0%';
   setFb('초기화되었습니다.','');
@@ -2126,7 +2159,7 @@ const CHALLENGES=[
     name:'푸쉬업 100 스피드런',
     desc:'가장 빠르게 푸쉬업 100개를 완료하라. AI가 모든 동작을 실시간 검증한다.',
     days:'3일', method:'AI 카운팅',
-    reward:'🎁 5,000P',
+    reward:'🎁 5,000P + 푸쉬업 바',
     ppl:'2,341', prog:65, target:100, ex:'pushup'
   },
   // ── 챌린지 2 ──────────────────────────────────────────────
@@ -2156,7 +2189,7 @@ const CHALLENGES=[
     name:'스쿼트 200챌린지',
     desc:'총 200개 스쿼트를 가장 빠른 시간 내에 완료하라.',
     days:'5일', method:'AI 카운팅',
-    reward:'🎁 4,000P',
+    reward:'🎁 4,000P + 보조밴드',
     ppl:'1,020', prog:50, target:200, ex:'squat'
   },
   // ── 챌린지 5 ──────────────────────────────────────────────
