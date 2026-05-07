@@ -1,0 +1,1508 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IRONBODY — AI 맨몸운동 경쟁 플랫폼</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700;900&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+<style>
+:root{
+  --bg:#070809;--bg2:#0d0f11;--bg3:#131619;--surface:#1a1d21;
+  --border:#252930;--border2:#2e3540;
+  --accent:#e8ff00;--accent2:#ff3c3c;--accent3:#00d4ff;--accent4:#a855f7;
+  --text:#f0f2f5;--muted:#6b7280;--muted2:#4b5563;
+  --gold:#ffd700;--silver:#c0c0c0;--bronze:#cd7f32;
+  --green:#4ade80;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;overflow-x:hidden;min-height:100vh;}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:var(--bg2);}
+::-webkit-scrollbar-thumb{background:var(--border2);}
+
+/* ── UTILS ── */
+.hidden{display:none!important;}
+.flex{display:flex;}
+.flex-col{display:flex;flex-direction:column;}
+.items-center{align-items:center;}
+.justify-between{justify-content:space-between;}
+.gap-1{gap:.4rem;}
+.gap-2{gap:.8rem;}
+.gap-3{gap:1.2rem;}
+.gap-4{gap:1.6rem;}
+.w-full{width:100%;}
+.text-accent{color:var(--accent);}
+.text-muted{color:var(--muted);}
+.text-red{color:var(--accent2);}
+.text-blue{color:var(--accent3);}
+.text-green{color:var(--green);}
+.font-bebas{font-family:'Bebas Neue',sans-serif;letter-spacing:2px;}
+.font-bar{font-family:'Barlow Condensed',sans-serif;}
+
+/* ── BUTTONS ── */
+.btn{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:.9rem;letter-spacing:2px;text-transform:uppercase;border:none;cursor:pointer;padding:.8rem 1.8rem;transition:all .2s;}
+.btn-accent{background:var(--accent);color:#000;}
+.btn-accent:hover{background:#fff;color:#000;}
+.btn-outline{background:transparent;color:var(--text);border:1px solid var(--border2);}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent);}
+.btn-danger{background:transparent;color:var(--accent2);border:1px solid var(--accent2);}
+.btn-danger:hover{background:var(--accent2);color:#fff;}
+.btn-sm{padding:.5rem 1.2rem;font-size:.8rem;}
+.btn-xs{padding:.3rem .8rem;font-size:.72rem;}
+
+/* ── CARDS ── */
+.card{background:var(--bg3);border:1px solid var(--border);padding:1.2rem;}
+.card-title{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.75rem;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:.9rem;}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:1.8rem;right:1.8rem;z-index:9999;
+  background:var(--bg2);border:1px solid var(--accent);padding:.85rem 1.4rem;
+  font-family:'Barlow Condensed',sans-serif;font-size:.88rem;letter-spacing:1px;color:var(--accent);
+  transform:translateY(80px);opacity:0;transition:all .35s;pointer-events:none;max-width:320px;}
+#toast.show{transform:none;opacity:1;}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;z-index:800;background:rgba(0,0,0,.88);backdrop-filter:blur(10px);
+  display:none;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--bg2);border:1px solid var(--border2);padding:2rem;max-width:460px;width:92%;animation:fadeUp .3s ease;}
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+@keyframes slideIn{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:none}}
+@keyframes glow{0%,100%{text-shadow:0 0 20px rgba(232,255,0,.4)}50%{text-shadow:0 0 50px rgba(232,255,0,.8)}}
+
+/* ══════════════════════════════════════════
+   AUTH SCREENS
+══════════════════════════════════════════ */
+#authScreen{position:fixed;inset:0;z-index:700;background:var(--bg);display:flex;align-items:center;justify-content:center;}
+.auth-bg{position:absolute;inset:0;
+  background:radial-gradient(ellipse 60% 80% at 80% 50%,rgba(232,255,0,.05) 0%,transparent 60%),
+             radial-gradient(ellipse 40% 60% at 20% 80%,rgba(255,60,60,.06) 0%,transparent 50%);}
+.auth-grid{position:absolute;inset:0;
+  background-image:linear-gradient(rgba(232,255,0,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(232,255,0,.03) 1px,transparent 1px);
+  background-size:60px 60px;}
+.auth-box{position:relative;z-index:1;width:420px;padding:2.4rem;background:var(--bg2);border:1px solid var(--border2);animation:fadeUp .5s ease;}
+.auth-logo{font-family:'Bebas Neue',sans-serif;font-size:2.2rem;letter-spacing:5px;color:var(--accent);text-shadow:0 0 30px rgba(232,255,0,.35);margin-bottom:.3rem;}
+.auth-logo span{color:var(--text);}
+.auth-sub{font-family:'Barlow Condensed',sans-serif;font-size:.8rem;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:2rem;}
+.auth-tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:1.6rem;}
+.auth-tab{flex:1;padding:.7rem;text-align:center;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.85rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .2s;}
+.auth-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.form-group{display:flex;flex-direction:column;gap:.5rem;margin-bottom:1rem;}
+.form-label{font-family:'Barlow Condensed',sans-serif;font-size:.75rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
+.form-input{background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:.75rem 1rem;font-family:'Noto Sans KR',sans-serif;font-size:.9rem;outline:none;transition:border-color .2s;width:100%;}
+.form-input:focus{border-color:var(--accent);}
+.form-input::placeholder{color:var(--muted2);}
+.auth-err{font-family:'Barlow Condensed',sans-serif;font-size:.8rem;letter-spacing:1px;color:var(--accent2);min-height:1.2rem;margin-bottom:.5rem;}
+.auth-hint{font-size:.8rem;color:var(--muted);text-align:center;margin-top:1rem;font-family:'Barlow Condensed',sans-serif;letter-spacing:1px;}
+
+/* ══════════════════════════════════════════
+   NAV
+══════════════════════════════════════════ */
+nav{position:fixed;top:0;width:100%;z-index:600;height:60px;
+  display:flex;align-items:center;justify-content:space-between;padding:0 2rem;
+  background:rgba(7,8,9,.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);}
+.nav-logo{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:4px;color:var(--accent);text-shadow:0 0 20px rgba(232,255,0,.3);cursor:pointer;}
+.nav-logo span{color:var(--text);}
+.nav-center{display:flex;gap:.2rem;}
+.nav-item{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.82rem;letter-spacing:2px;text-transform:uppercase;
+  color:var(--muted);cursor:pointer;padding:.5rem 1rem;border-bottom:2px solid transparent;transition:all .2s;}
+.nav-item:hover{color:var(--text);}
+.nav-item.active{color:var(--accent);border-bottom-color:var(--accent);}
+.nav-right{display:flex;align-items:center;gap:1rem;}
+.nav-pts{font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:2px;color:var(--accent);}
+.nav-pts-lbl{font-family:'Barlow Condensed',sans-serif;font-size:.68rem;letter-spacing:1px;color:var(--muted);}
+.nav-avatar{width:36px;height:36px;border-radius:50%;border:2px solid var(--accent);background:rgba(232,255,0,.1);
+  display:flex;align-items:center;justify-content:center;font-size:1rem;cursor:pointer;}
+.nav-username{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.85rem;letter-spacing:1px;color:var(--text);}
+
+/* ══════════════════════════════════════════
+   PAGES
+══════════════════════════════════════════ */
+.page{display:none;padding-top:60px;min-height:100vh;}
+.page.active{display:block;}
+.page-inner{max-width:1100px;margin:0 auto;padding:2.5rem 2rem;}
+.page-hdr{margin-bottom:2rem;}
+.page-hdr h2{font-family:'Bebas Neue',sans-serif;font-size:2.8rem;letter-spacing:3px;margin-bottom:.3rem;}
+.page-hdr p{color:var(--muted);font-size:.88rem;}
+.section-lbl{font-family:'Barlow Condensed',sans-serif;font-size:.72rem;letter-spacing:4px;text-transform:uppercase;color:var(--accent);margin-bottom:.5rem;}
+
+/* ══════════════════════════════════════════
+   HOME
+══════════════════════════════════════════ */
+.hero{position:relative;min-height:calc(100vh - 60px);display:flex;align-items:center;padding:0 2.5rem;overflow:hidden;}
+.hero-bg{position:absolute;inset:0;background:radial-gradient(ellipse 60% 80% at 80% 50%,rgba(232,255,0,.05) 0%,transparent 60%),radial-gradient(ellipse 40% 60% at 20% 80%,rgba(255,60,60,.07) 0%,transparent 50%);}
+.hero-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(232,255,0,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(232,255,0,.03) 1px,transparent 1px);background-size:60px 60px;mask-image:radial-gradient(ellipse at 70% 50%,black 30%,transparent 70%);}
+.hero-content{position:relative;z-index:1;max-width:680px;}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;background:rgba(232,255,0,.07);border:1px solid rgba(232,255,0,.2);padding:.4rem 1rem;font-family:'Barlow Condensed',sans-serif;font-size:.77rem;letter-spacing:3px;text-transform:uppercase;color:var(--accent);margin-bottom:1.8rem;animation:fadeUp .6s ease both;}
+.hero-badge::before{content:'';width:6px;height:6px;background:var(--accent);border-radius:50%;animation:blink 1.5s infinite;}
+.hero h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(3.5rem,9vw,7rem);line-height:.92;letter-spacing:2px;animation:fadeUp .6s .1s ease both;}
+.hero h1 .hl{color:var(--accent);text-shadow:0 0 50px rgba(232,255,0,.3);}
+.hero h1 .ol{-webkit-text-stroke:1px rgba(255,255,255,.18);color:transparent;}
+.hero-sub{font-size:.98rem;color:var(--muted);line-height:1.75;margin:1.3rem 0 2.2rem;max-width:450px;animation:fadeUp .6s .2s ease both;}
+.hero-btns{display:flex;gap:1rem;animation:fadeUp .6s .3s ease both;}
+.hero-stats{position:absolute;bottom:2.5rem;left:2.5rem;right:2.5rem;display:flex;gap:2.5rem;align-items:center;animation:fadeUp .6s .4s ease both;}
+.hstat{display:flex;flex-direction:column;gap:.2rem;}
+.hstat-num{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--accent);letter-spacing:2px;}
+.hstat-lbl{font-family:'Barlow Condensed',sans-serif;font-size:.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
+.hdiv{width:1px;height:38px;background:var(--border);}
+
+/* ══════════════════════════════════════════
+   WORKOUT PAGE
+══════════════════════════════════════════ */
+#page-workout .page-inner{max-width:1200px;}
+.workout-grid{display:grid;grid-template-columns:1fr 320px;gap:1.5rem;}
+
+/* Camera */
+.cam-wrap{background:var(--bg3);border:1px solid var(--border);display:flex;flex-direction:column;}
+.cam-head{padding:.9rem 1.3rem;border-bottom:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;justify-content:space-between;}
+.cam-head-title{font-family:'Bebas Neue',sans-serif;font-size:1.3rem;letter-spacing:3px;}
+.cam-status-row{display:flex;align-items:center;gap:.5rem;font-family:'Barlow Condensed',sans-serif;font-size:.72rem;letter-spacing:2px;text-transform:uppercase;}
+.sdot{width:7px;height:7px;border-radius:50%;background:var(--muted);}
+.sdot.live{background:var(--accent2);animation:blink 1s infinite;}
+.sdot.ready{background:var(--green);}
+
+.vid-wrap{position:relative;background:#000;min-height:420px;flex:1;}
+#inputVideo{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);}
+#outputCanvas{position:absolute;top:0;left:0;width:100%;height:100%;transform:scaleX(-1);}
+
+/* HUD overlays */
+.cam-corners::before,.cam-corners::after{content:'';position:absolute;width:26px;height:26px;border-color:var(--accent);border-style:solid;z-index:10;}
+.cam-corners::before{top:10px;left:10px;border-width:2px 0 0 2px;}
+.cam-corners::after{bottom:10px;right:10px;border-width:0 2px 2px 0;}
+.hud-tl{position:absolute;top:12px;right:12px;z-index:10;display:flex;flex-direction:column;gap:5px;align-items:flex-end;}
+.hud-chip{font-family:'Barlow Condensed',sans-serif;font-size:.67rem;letter-spacing:2px;text-transform:uppercase;padding:.2rem .6rem;border:1px solid rgba(0,212,255,.3);background:rgba(0,0,0,.75);color:var(--accent3);}
+.hud-chip.red{border-color:rgba(255,60,60,.4);color:var(--accent2);}
+.hud-chip.green{border-color:rgba(74,222,128,.4);color:var(--green);}
+.hud-chip.yellow{border-color:rgba(232,255,0,.4);color:var(--accent);}
+
+#angleOverlay{position:absolute;bottom:110px;left:50%;transform:translateX(-50%);z-index:10;font-family:'Bebas Neue',sans-serif;font-size:4.5rem;letter-spacing:4px;color:var(--accent);text-shadow:0 0 40px rgba(232,255,0,.6);opacity:0;transition:opacity .2s;pointer-events:none;}
+#repFlash{position:absolute;inset:0;z-index:9;background:rgba(232,255,0,.07);opacity:0;pointer-events:none;transition:opacity .1s;}
+#formWarn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:11;
+  font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:3px;color:var(--accent2);
+  text-shadow:0 0 30px rgba(255,60,60,.7);opacity:0;transition:opacity .3s;pointer-events:none;text-align:center;}
+
+/* Cam bottom metrics */
+.cam-metrics{padding:.9rem 1.2rem;background:rgba(7,8,9,.96);border-top:1px solid var(--border);display:flex;gap:1.5rem;align-items:center;}
+.metric{display:flex;flex-direction:column;gap:.1rem;}
+.metric-val{font-family:'Bebas Neue',sans-serif;font-size:2.4rem;color:var(--accent);letter-spacing:3px;line-height:1;transition:transform .12s;}
+.metric-val.pop{transform:scale(1.18);}
+.metric-val.blue{color:var(--accent3);font-size:1.8rem;}
+.metric-val.white{color:var(--text);font-size:1.8rem;}
+.metric-lbl{font-family:'Barlow Condensed',sans-serif;font-size:.68rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
+.cam-ctrls{display:flex;gap:.6rem;margin-left:auto;flex-wrap:wrap;justify-content:flex-end;}
+
+/* Sidebar */
+.workout-sidebar{display:flex;flex-direction:column;gap:1rem;}
+.ex-list{display:flex;flex-direction:column;gap:.35rem;}
+.ex-btn{display:flex;align-items:center;gap:.8rem;padding:.7rem .9rem;border:1px solid var(--border);background:var(--bg2);cursor:pointer;transition:all .2s;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.88rem;letter-spacing:1px;color:var(--muted);}
+.ex-btn:hover{border-color:rgba(232,255,0,.3);color:var(--text);}
+.ex-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(232,255,0,.04);}
+.ex-icon{font-size:1.15rem;width:24px;text-align:center;}
+.ex-sub{font-size:.7rem;color:var(--muted);font-weight:400;letter-spacing:.5px;}
+#feedbackBox{padding:.8rem 1rem;font-family:'Barlow Condensed',sans-serif;font-size:.85rem;letter-spacing:.5px;line-height:1.6;border:1px solid var(--border);background:var(--bg2);color:var(--muted);min-height:72px;transition:all .3s;}
+#feedbackBox.warn{border-color:var(--accent2);color:var(--accent2);background:rgba(255,60,60,.05);}
+#feedbackBox.good{border-color:var(--green);color:var(--green);background:rgba(74,222,128,.05);}
+.sets-list{display:flex;flex-direction:column;gap:.3rem;max-height:220px;overflow-y:auto;}
+.set-row{display:flex;justify-content:space-between;align-items:center;padding:.5rem .7rem;background:var(--bg2);border:1px solid var(--border);font-family:'Barlow Condensed',sans-serif;font-size:.82rem;letter-spacing:.5px;animation:slideIn .3s ease;}
+.set-row .sr-num{color:var(--muted);}
+.set-row .sr-ex{color:var(--text);}
+.set-row .sr-reps{color:var(--accent);font-weight:700;}
+
+/* Progress bar within camera */
+.rep-progress{height:3px;background:var(--border);position:relative;}
+.rep-progress-fill{height:3px;background:var(--accent);transition:width .2s;}
+
+/* ══════════════════════════════════════════
+   RANKING PAGE
+══════════════════════════════════════════ */
+.rank-filters{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1.2rem;}
+.filter-pill{font-family:'Barlow Condensed',sans-serif;font-size:.73rem;letter-spacing:2px;text-transform:uppercase;padding:.32rem .9rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .2s;background:transparent;}
+.filter-pill.active,.filter-pill:hover{border-color:var(--accent);color:var(--accent);background:rgba(232,255,0,.04);}
+.rank-tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:1.4rem;}
+.rank-tab{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.82rem;letter-spacing:2px;text-transform:uppercase;padding:.65rem 1.4rem;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .2s;}
+.rank-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.rank-list{display:flex;flex-direction:column;gap:.4rem;}
+.rank-row{display:grid;grid-template-columns:56px 1fr 110px 70px 80px;align-items:center;gap:1rem;padding:1rem 1.2rem;background:var(--bg3);border:1px solid var(--border);transition:all .2s;position:relative;overflow:hidden;}
+.rank-row::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:transparent;transition:background .2s;}
+.rank-row:hover::before{background:rgba(232,255,0,.25);}
+.rank-row.r1::before{background:var(--gold);}
+.rank-row.r2::before{background:var(--silver);}
+.rank-row.r3::before{background:var(--bronze);}
+.rank-row.me-row{border-color:rgba(232,255,0,.25);background:rgba(232,255,0,.03);}
+.rn{font-family:'Bebas Neue',sans-serif;font-size:1.7rem;text-align:center;letter-spacing:2px;}
+.rn.gold{color:var(--gold);}
+.rn.silver{color:var(--silver);}
+.rn.bronze{color:var(--bronze);}
+.rn.norm{color:var(--muted);}
+.ru{display:flex;align-items:center;gap:.8rem;}
+.rav{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;border:2px solid var(--border);background:var(--surface);flex-shrink:0;}
+.rname{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.92rem;}
+.rtag{font-size:.7rem;color:var(--muted);}
+.rscore{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--accent);text-align:right;letter-spacing:2px;}
+.rscore.dim{color:var(--text);font-size:1.3rem;}
+.rch{font-family:'Barlow Condensed',sans-serif;font-size:.78rem;text-align:center;}
+.rch.up{color:var(--green);}
+.rch.dn{color:var(--accent2);}
+.rch.eq{color:var(--muted);}
+.rbdg{display:flex;gap:.3rem;flex-wrap:wrap;justify-content:flex-end;}
+.bdg{font-family:'Barlow Condensed',sans-serif;font-size:.62rem;letter-spacing:1px;padding:.15rem .45rem;background:rgba(232,255,0,.08);border:1px solid rgba(232,255,0,.15);color:var(--accent);}
+
+/* ══════════════════════════════════════════
+   CHALLENGE PAGE
+══════════════════════════════════════════ */
+.ch-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1.2rem;margin-top:1.5rem;}
+.ch-card{border:1px solid var(--border);background:var(--bg3);transition:all .3s;cursor:pointer;position:relative;overflow:hidden;}
+.ch-card:hover{border-color:rgba(232,255,0,.3);transform:translateY(-3px);}
+.ch-accent-bar{position:absolute;bottom:0;left:0;height:2px;background:var(--accent);width:0;transition:width .4s;}
+.ch-card:hover .ch-accent-bar{width:100%;}
+.ch-top{padding:1.1rem 1.1rem 0;display:flex;justify-content:space-between;align-items:flex-start;}
+.ch-tag{font-family:'Barlow Condensed',sans-serif;font-size:.67rem;letter-spacing:2px;text-transform:uppercase;padding:.22rem .65rem;border:1px solid;}
+.tag-hot{color:var(--accent2);border-color:var(--accent2);background:rgba(255,60,60,.08);}
+.tag-new{color:var(--accent3);border-color:var(--accent3);background:rgba(0,212,255,.08);}
+.tag-wk{color:var(--accent);border-color:var(--accent);background:rgba(232,255,0,.08);}
+.tag-done{color:var(--green);border-color:var(--green);background:rgba(74,222,128,.08);}
+.ch-ppl{font-family:'Barlow Condensed',sans-serif;font-size:.73rem;color:var(--muted);}
+.ch-body{padding:.75rem 1.1rem;}
+.ch-name{font-family:'Bebas Neue',sans-serif;font-size:1.65rem;letter-spacing:2px;margin-bottom:.35rem;}
+.ch-prog-wrap{background:var(--border);height:3px;margin-bottom:.7rem;}
+.ch-prog{height:3px;background:var(--accent);transition:width 1.2s ease;}
+.ch-desc{font-size:.8rem;color:var(--muted);line-height:1.55;margin-bottom:.7rem;}
+.ch-meta{display:flex;gap:.9rem;font-family:'Barlow Condensed',sans-serif;font-size:.76rem;color:var(--muted);}
+.ch-foot{padding:.85rem 1.1rem;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+.ch-reward{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.83rem;color:var(--accent);}
+.ch-join{font-family:'Barlow Condensed',sans-serif;font-size:.76rem;letter-spacing:2px;color:var(--muted);transition:color .2s;}
+.ch-card:hover .ch-join{color:var(--accent);}
+.ch-joined{color:var(--green)!important;}
+
+/* My challenges panel */
+.my-ch-list{display:flex;flex-direction:column;gap:.6rem;margin-top:1.5rem;}
+.my-ch-row{display:flex;align-items:center;justify-content:space-between;padding:.9rem 1.1rem;background:var(--bg3);border:1px solid var(--border);}
+.my-ch-name{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.9rem;letter-spacing:1px;}
+.my-ch-prog{font-size:.78rem;color:var(--muted);font-family:'Barlow Condensed',sans-serif;letter-spacing:1px;}
+.prog-bar-wrap{background:var(--border);height:4px;border-radius:2px;margin-top:.4rem;min-width:120px;}
+.prog-bar-fill{height:4px;background:var(--accent);border-radius:2px;transition:width .8s;}
+
+/* ══════════════════════════════════════════
+   COMMUNITY PAGE
+══════════════════════════════════════════ */
+.community-grid{display:grid;grid-template-columns:1fr 300px;gap:1.5rem;}
+.post-compose{background:var(--bg3);border:1px solid var(--border);padding:1.2rem;margin-bottom:1.2rem;}
+.compose-row{display:flex;gap:.8rem;align-items:flex-start;}
+.compose-avatar{width:38px;height:38px;border-radius:50%;border:2px solid var(--accent);background:rgba(232,255,0,.1);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;}
+.compose-input{flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:.7rem 1rem;font-family:'Noto Sans KR',sans-serif;font-size:.88rem;outline:none;resize:none;min-height:70px;transition:border-color .2s;}
+.compose-input:focus{border-color:var(--accent);}
+.compose-input::placeholder{color:var(--muted2);}
+.compose-footer{display:flex;justify-content:space-between;align-items:center;margin-top:.7rem;}
+.compose-tags{display:flex;gap:.4rem;}
+.ctag{font-family:'Barlow Condensed',sans-serif;font-size:.7rem;letter-spacing:1px;padding:.22rem .65rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .2s;}
+.ctag:hover,.ctag.active{border-color:var(--accent);color:var(--accent);}
+
+.posts-feed{display:flex;flex-direction:column;gap:.9rem;}
+.post-card{background:var(--bg3);border:1px solid var(--border);padding:1.2rem;transition:border-color .2s;}
+.post-card:hover{border-color:var(--border2);}
+.post-head{display:flex;align-items:center;gap:.8rem;margin-bottom:.9rem;}
+.post-avatar{width:36px;height:36px;border-radius:50%;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.95rem;flex-shrink:0;}
+.post-meta .post-name{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.9rem;letter-spacing:1px;}
+.post-meta .post-time{font-size:.72rem;color:var(--muted);font-family:'Barlow Condensed',sans-serif;letter-spacing:1px;}
+.post-tag-badge{margin-left:auto;font-family:'Barlow Condensed',sans-serif;font-size:.67rem;letter-spacing:2px;text-transform:uppercase;padding:.2rem .6rem;border:1px solid;}
+.post-body{font-size:.88rem;line-height:1.7;color:var(--text);margin-bottom:.9rem;}
+.post-record{background:var(--bg2);border:1px solid var(--border);padding:.7rem 1rem;margin-bottom:.9rem;display:flex;gap:1.5rem;}
+.prec-item{display:flex;flex-direction:column;gap:.1rem;}
+.prec-val{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--accent);letter-spacing:2px;}
+.prec-lbl{font-family:'Barlow Condensed',sans-serif;font-size:.68rem;letter-spacing:1px;color:var(--muted);text-transform:uppercase;}
+.post-actions{display:flex;gap:1.2rem;align-items:center;}
+.post-action{display:flex;align-items:center;gap:.4rem;font-family:'Barlow Condensed',sans-serif;font-size:.78rem;letter-spacing:1px;color:var(--muted);cursor:pointer;transition:color .2s;background:none;border:none;}
+.post-action:hover{color:var(--accent);}
+.post-action.liked{color:var(--accent2);}
+
+/* Sidebar community */
+.comm-sidebar{display:flex;flex-direction:column;gap:1rem;}
+.top-users{display:flex;flex-direction:column;gap:.5rem;}
+.top-user-row{display:flex;align-items:center;gap:.7rem;padding:.6rem .7rem;background:var(--bg2);border:1px solid var(--border);transition:border-color .2s;cursor:pointer;}
+.top-user-row:hover{border-color:rgba(232,255,0,.2);}
+.tu-rank{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--muted);width:20px;text-align:center;}
+.tu-name{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.85rem;flex:1;}
+.tu-pts{font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--accent);letter-spacing:1px;}
+.tag-cloud{display:flex;flex-wrap:wrap;gap:.4rem;}
+.t-chip{font-family:'Barlow Condensed',sans-serif;font-size:.72rem;letter-spacing:1px;padding:.25rem .7rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .2s;}
+.t-chip:hover{border-color:var(--accent);color:var(--accent);}
+
+/* Comments */
+.comments-section{margin-top:.9rem;padding-top:.9rem;border-top:1px solid var(--border);display:none;}
+.comments-section.open{display:block;}
+.comment-row{display:flex;gap:.6rem;margin-bottom:.6rem;}
+.comment-av{width:28px;height:28px;border-radius:50%;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.7rem;flex-shrink:0;}
+.comment-body{flex:1;background:var(--bg2);padding:.5rem .8rem;font-size:.82rem;color:var(--text);line-height:1.5;}
+.comment-author{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.75rem;color:var(--accent);margin-bottom:.2rem;letter-spacing:.5px;}
+.comment-input-row{display:flex;gap:.6rem;margin-top:.5rem;}
+.comment-input{flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:.5rem .8rem;font-family:'Noto Sans KR',sans-serif;font-size:.82rem;outline:none;transition:border-color .2s;}
+.comment-input:focus{border-color:var(--accent);}
+
+/* ══════════════════════════════════════════
+   PROFILE MODAL
+══════════════════════════════════════════ */
+.profile-modal{background:var(--bg2);border:1px solid var(--border2);padding:2rem;max-width:500px;width:92%;animation:fadeUp .3s ease;}
+.profile-header{display:flex;align-items:center;gap:1.2rem;margin-bottom:1.5rem;}
+.profile-avatar-big{width:64px;height:64px;border-radius:50%;border:3px solid var(--accent);background:rgba(232,255,0,.1);display:flex;align-items:center;justify-content:center;font-size:2rem;}
+.profile-stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.7rem;margin-bottom:1.5rem;}
+.profile-stat{background:var(--bg3);border:1px solid var(--border);padding:.9rem;text-align:center;}
+.profile-stat-val{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--accent);letter-spacing:2px;}
+.profile-stat-lbl{font-family:'Barlow Condensed',sans-serif;font-size:.7rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+.profile-exercise-list{display:flex;flex-direction:column;gap:.4rem;}
+.profile-ex-row{display:flex;justify-content:space-between;align-items:center;padding:.6rem .8rem;background:var(--bg3);border:1px solid var(--border);}
+.profile-ex-name{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.85rem;letter-spacing:1px;}
+.profile-ex-best{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--accent);letter-spacing:2px;}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ AUTH SCREEN ═══════════════ -->
+<div id="authScreen">
+  <div class="auth-bg"></div>
+  <div class="auth-grid"></div>
+  <div class="auth-box">
+    <div class="auth-logo">IRON<span>BODY</span></div>
+    <div class="auth-sub">AI 맨몸운동 경쟁 플랫폼</div>
+    <div class="auth-tabs">
+      <div class="auth-tab active" onclick="switchAuthTab('login')">로그인</div>
+      <div class="auth-tab" onclick="switchAuthTab('signup')">회원가입</div>
+    </div>
+
+    <!-- Login -->
+    <div id="loginForm">
+      <div class="form-group">
+        <label class="form-label">이메일</label>
+        <input class="form-input" id="loginEmail" type="email" placeholder="example@email.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">비밀번호</label>
+        <input class="form-input" id="loginPw" type="password" placeholder="비밀번호 입력">
+      </div>
+      <div class="auth-err" id="loginErr"></div>
+      <button class="btn btn-accent w-full" onclick="doLogin()">로그인</button>
+      <div class="auth-hint">계정이 없으신가요? <span style="color:var(--accent);cursor:pointer;" onclick="switchAuthTab('signup')">회원가입</span></div>
+      <div style="margin-top:.8rem;text-align:center;">
+        <button class="btn btn-outline btn-sm" onclick="demoLogin()" style="width:100%">🎮 데모로 체험하기</button>
+      </div>
+    </div>
+
+    <!-- Signup -->
+    <div id="signupForm" class="hidden">
+      <div class="form-group">
+        <label class="form-label">닉네임</label>
+        <input class="form-input" id="signupName" type="text" placeholder="사용할 닉네임">
+      </div>
+      <div class="form-group">
+        <label class="form-label">이메일</label>
+        <input class="form-input" id="signupEmail" type="email" placeholder="example@email.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">비밀번호 (6자 이상)</label>
+        <input class="form-input" id="signupPw" type="password" placeholder="비밀번호 설정">
+      </div>
+      <div class="auth-err" id="signupErr"></div>
+      <button class="btn btn-accent w-full" onclick="doSignup()">가입하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ NAV ═══════════════ -->
+<nav id="mainNav" class="hidden">
+  <div class="nav-logo" onclick="goPage('home')">IRON<span>BODY</span></div>
+  <div class="nav-center">
+    <div class="nav-item active" onclick="goPage('home')" id="ni-home">홈</div>
+    <div class="nav-item" onclick="goPage('workout')" id="ni-workout">운동하기</div>
+    <div class="nav-item" onclick="goPage('ranking')" id="ni-ranking">랭킹</div>
+    <div class="nav-item" onclick="goPage('challenge')" id="ni-challenge">챌린지</div>
+    <div class="nav-item" onclick="goPage('community')" id="ni-community">커뮤니티</div>
+  </div>
+  <div class="nav-right">
+    <div class="flex flex-col items-center">
+      <div class="nav-pts" id="navPts">0</div>
+      <div class="nav-pts-lbl">포인트</div>
+    </div>
+    <div>
+      <div class="nav-username" id="navUsername">—</div>
+      <div class="nav-pts-lbl" id="navRank">랭킹 —</div>
+    </div>
+    <div class="nav-avatar" id="navAvatar" onclick="openProfile()">😀</div>
+  </div>
+</nav>
+
+<!-- ═══════════════ PAGES ═══════════════ -->
+
+<!-- HOME -->
+<div class="page" id="page-home">
+  <section class="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-grid"></div>
+    <div class="hero-content">
+      <div class="hero-badge">AI 카운팅 · 실시간 랭킹 · 챌린지 보상</div>
+      <h1>운동을<br><span class="hl">게임으로</span><br><span class="ol">만들다</span></h1>
+      <p class="hero-sub">카메라 하나로 AI가 푸쉬업·턱걸이·스쿼트·싯업을 실시간 감지합니다. 전국 랭킹에서 경쟁하고, 챌린지를 완료해 보상을 획득하세요.</p>
+      <div class="hero-btns">
+        <button class="btn btn-accent" onclick="goPage('workout')">지금 운동 시작</button>
+        <button class="btn btn-outline" onclick="goPage('ranking')">랭킹 보기</button>
+      </div>
+    </div>
+    <div class="hero-stats">
+      <div class="hstat"><div class="hstat-num" id="hs1">0</div><div class="hstat-lbl">활성 유저</div></div>
+      <div class="hdiv"></div>
+      <div class="hstat"><div class="hstat-num" id="hs2">0</div><div class="hstat-lbl">총 운동 횟수</div></div>
+      <div class="hdiv"></div>
+      <div class="hstat"><div class="hstat-num">38</div><div class="hstat-lbl">진행 챌린지</div></div>
+      <div class="hdiv"></div>
+      <div class="hstat"><div class="hstat-num" style="color:var(--accent3);animation:blink 1.5s infinite">LIVE</div><div class="hstat-lbl">AI 카운팅</div></div>
+    </div>
+  </section>
+</div>
+
+<!-- WORKOUT -->
+<div class="page" id="page-workout">
+  <div class="page-inner">
+    <div class="workout-grid">
+      <!-- Camera -->
+      <div class="cam-wrap">
+        <div class="cam-head">
+          <div class="cam-head-title">AI 카운팅 모드</div>
+          <div class="cam-status-row">
+            <div class="sdot" id="sdot"></div>
+            <span id="stext" style="font-family:'Barlow Condensed',sans-serif;font-size:.72rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted)">대기 중</span>
+          </div>
+        </div>
+        <div class="vid-wrap cam-corners">
+          <video id="inputVideo" autoplay muted playsinline></video>
+          <canvas id="outputCanvas"></canvas>
+          <div class="hud-tl">
+            <div class="hud-chip red" id="hudLive">● 대기</div>
+            <div class="hud-chip yellow" id="hudExercise">PUSHUP MODE</div>
+            <div class="hud-chip" id="hudAccuracy">정확도: --</div>
+          </div>
+          <div id="angleOverlay"></div>
+          <div id="repFlash"></div>
+          <div id="formWarn"></div>
+        </div>
+        <div class="rep-progress"><div class="rep-progress-fill" id="repProgressFill" style="width:0%"></div></div>
+        <div class="cam-metrics">
+          <div class="metric"><div class="metric-val" id="mRep">0</div><div class="metric-lbl">현재 세트</div></div>
+          <div class="metric"><div class="metric-val blue" id="mTotal">0</div><div class="metric-lbl">총 횟수</div></div>
+          <div class="metric"><div class="metric-val white" id="mSet">0</div><div class="metric-lbl">세트</div></div>
+          <div class="metric"><div class="metric-val white" id="mTimer">00:00</div><div class="metric-lbl">시간</div></div>
+          <div class="cam-ctrls">
+            <button class="btn btn-accent btn-sm" id="btnStart" onclick="startCam()">카메라 시작</button>
+            <button class="btn btn-sm hidden" id="btnSaveSet" style="color:var(--accent3);border:1px solid var(--accent3);background:transparent;font-family:'Barlow Condensed',sans-serif;font-weight:900;letter-spacing:2px;text-transform:uppercase;cursor:pointer;" onclick="saveSet()">세트 저장</button>
+            <button class="btn btn-outline btn-sm" onclick="resetReps()">초기화</button>
+            <button class="btn btn-danger btn-sm hidden" id="btnStop" onclick="stopCam()">종료</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar -->
+      <div class="workout-sidebar">
+        <div class="card">
+          <div class="card-title">운동 선택</div>
+          <div class="ex-list">
+            <div class="ex-btn active" onclick="selEx('pushup',this)"><div class="ex-icon">💪</div><div><div>푸쉬업</div><div class="ex-sub">팔꿈치 각도 감지</div></div></div>
+            <div class="ex-btn" onclick="selEx('pullup',this)"><div class="ex-icon">⬆️</div><div><div>턱걸이</div><div class="ex-sub">팔꿈치+어깨 감지</div></div></div>
+            <div class="ex-btn" onclick="selEx('squat',this)"><div class="ex-icon">🦵</div><div><div>스쿼트</div><div class="ex-sub">무릎 각도 감지</div></div></div>
+            <div class="ex-btn" onclick="selEx('situp',this)"><div class="ex-icon">🔥</div><div><div>싯업</div><div class="ex-sub">상체 기울기 감지</div></div></div>
+            <div class="ex-btn" onclick="selEx('dips',this)"><div class="ex-icon">🏋️</div><div><div>딥스</div><div class="ex-sub">팔꿈치 각도 감지</div></div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">실시간 피드백</div>
+          <div id="feedbackBox">카메라를 시작하면 AI가 자세를 분석합니다.</div>
+        </div>
+        <div class="card" style="flex:1">
+          <div class="card-title">세션 기록</div>
+          <div class="sets-list" id="setsLog"><div style="color:var(--muted);font-size:.82rem;font-family:'Barlow Condensed',sans-serif;text-align:center;padding:.8rem 0;">아직 저장된 세트가 없습니다</div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">📌 촬영 팁</div>
+          <div style="font-size:.8rem;color:var(--muted);line-height:1.75;font-family:'Barlow Condensed',sans-serif;letter-spacing:.5px;">
+            • 전신이 카메라에 보이도록 위치 조절<br>
+            • <strong style="color:var(--text)">측면(옆면)</strong>에서 촬영 시 정확도 향상<br>
+            • 밝은 환경에서 촬영하세요<br>
+            • 자세 잡고 2초 대기 후 운동 시작
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RANKING -->
+<div class="page" id="page-ranking">
+  <div class="page-inner">
+    <div class="page-hdr">
+      <div class="section-lbl">실시간 업데이트</div>
+      <h2>글로벌 <span class="text-accent">랭킹</span></h2>
+      <p>이번 주 운동 점수 기준 · 운동 완료 즉시 반영</p>
+    </div>
+    <div class="rank-tabs">
+      <div class="rank-tab active" onclick="switchRankTab(this,'weekly')">주간</div>
+      <div class="rank-tab" onclick="switchRankTab(this,'monthly')">월간</div>
+      <div class="rank-tab" onclick="switchRankTab(this,'all')">전체 누적</div>
+    </div>
+    <div class="rank-filters" id="rankFilters">
+      <button class="filter-pill active" onclick="switchExFilter(this,'all')">전체</button>
+      <button class="filter-pill" onclick="switchExFilter(this,'pushup')">푸쉬업</button>
+      <button class="filter-pill" onclick="switchExFilter(this,'pullup')">턱걸이</button>
+      <button class="filter-pill" onclick="switchExFilter(this,'squat')">스쿼트</button>
+      <button class="filter-pill" onclick="switchExFilter(this,'situp')">싯업</button>
+      <button class="filter-pill" onclick="switchExFilter(this,'dips')">딥스</button>
+    </div>
+    <div class="rank-list" id="rankList"></div>
+  </div>
+</div>
+
+<!-- CHALLENGE -->
+<div class="page" id="page-challenge">
+  <div class="page-inner">
+    <div class="page-hdr">
+      <div class="section-lbl">매주 업데이트</div>
+      <h2>챌린지 <span style="color:var(--accent2)">경쟁</span></h2>
+      <p>완료 시 포인트 + 실물 상품 · AI가 모든 기록을 검증합니다</p>
+    </div>
+    <div style="display:flex;gap:1rem;margin-bottom:.5rem;align-items:center;">
+      <div class="section-lbl" style="margin:0">진행 중인 챌린지</div>
+    </div>
+    <div id="myChList" class="my-ch-list"></div>
+    <div class="section-lbl" style="margin-top:2rem">전체 챌린지</div>
+    <div class="ch-grid" id="chGrid"></div>
+  </div>
+</div>
+
+<!-- COMMUNITY -->
+<div class="page" id="page-community">
+  <div class="page-inner">
+    <div class="page-hdr">
+      <div class="section-lbl">운동 커뮤니티</div>
+      <h2>함께 <span class="text-accent">성장</span>하다</h2>
+      <p>운동 기록을 공유하고, 서로 동기부여하세요</p>
+    </div>
+    <div class="community-grid">
+      <div>
+        <!-- Compose -->
+        <div class="post-compose">
+          <div class="compose-row">
+            <div class="compose-avatar" id="composeAvatar">😀</div>
+            <textarea class="compose-input" id="postContent" placeholder="오늘의 운동 기록을 공유해보세요!"></textarea>
+          </div>
+          <div class="compose-footer">
+            <div class="compose-tags">
+              <div class="ctag" onclick="toggleTag(this,'푸쉬업')">#푸쉬업</div>
+              <div class="ctag" onclick="toggleTag(this,'턱걸이')">#턱걸이</div>
+              <div class="ctag" onclick="toggleTag(this,'스쿼트')">#스쿼트</div>
+              <div class="ctag" onclick="toggleTag(this,'인증')">#인증</div>
+            </div>
+            <button class="btn btn-accent btn-sm" onclick="submitPost()">게시하기</button>
+          </div>
+        </div>
+        <!-- Feed -->
+        <div class="posts-feed" id="postsFeed"></div>
+      </div>
+
+      <!-- Sidebar -->
+      <div class="comm-sidebar">
+        <div class="card">
+          <div class="card-title">🔥 이번 주 TOP 유저</div>
+          <div class="top-users" id="topUsers"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">인기 태그</div>
+          <div class="tag-cloud">
+            <div class="t-chip">#푸쉬업</div>
+            <div class="t-chip">#턱걸이</div>
+            <div class="t-chip">#맨몸운동</div>
+            <div class="t-chip">#챌린지</div>
+            <div class="t-chip">#스쿼트</div>
+            <div class="t-chip">#30일</div>
+            <div class="t-chip">#랭킹</div>
+            <div class="t-chip">#인증</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">📢 공지사항</div>
+          <div style="font-size:.82rem;color:var(--muted);line-height:1.7;font-family:'Barlow Condensed',sans-serif;letter-spacing:.5px;">
+            · 5월 챌린지 시즌 시작!<br>
+            · AI 카운팅 정확도 업데이트<br>
+            · 커뮤니티 신고 기능 추가<br>
+            · 새 운동 추가: 딥스 / 버피
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PROFILE MODAL -->
+<div class="modal-overlay" id="profileModal">
+  <div class="profile-modal">
+    <div class="profile-header">
+      <div class="profile-avatar-big" id="profileAvBig">😀</div>
+      <div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:2px;" id="profileName">—</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.78rem;color:var(--muted);letter-spacing:1px;" id="profileEmail">—</div>
+      </div>
+      <button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="doLogout()">로그아웃</button>
+    </div>
+    <div class="profile-stats-grid">
+      <div class="profile-stat"><div class="profile-stat-val" id="ps-total">0</div><div class="profile-stat-lbl">총 횟수</div></div>
+      <div class="profile-stat"><div class="profile-stat-val" id="ps-pts">0</div><div class="profile-stat-lbl">포인트</div></div>
+      <div class="profile-stat"><div class="profile-stat-val" id="ps-rank">—</div><div class="profile-stat-lbl">내 랭킹</div></div>
+    </div>
+    <div class="card-title">운동별 최고 기록</div>
+    <div class="profile-exercise-list" id="profileExList"></div>
+    <div style="margin-top:1.2rem;display:flex;gap:.6rem;">
+      <button class="btn btn-accent btn-sm" onclick="closeProfile();goPage('workout')">운동 시작</button>
+      <button class="btn btn-outline btn-sm" onclick="closeProfile()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- CHALLENGE JOIN MODAL -->
+<div class="modal-overlay" id="chModal">
+  <div class="modal">
+    <h3 style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:2px;margin-bottom:.5rem;" id="chModalTitle"></h3>
+    <p style="color:var(--muted);font-size:.88rem;line-height:1.6;margin-bottom:1.2rem;" id="chModalDesc"></p>
+    <div style="background:var(--bg3);border:1px solid var(--border);padding:.8rem 1rem;margin-bottom:1.4rem;font-family:'Barlow Condensed',sans-serif;font-size:.85rem;color:var(--accent);" id="chModalReward"></div>
+    <div style="display:flex;gap:.8rem;">
+      <button class="btn btn-accent btn-sm" onclick="joinChallenge()">참여하기</button>
+      <button class="btn btn-outline btn-sm" onclick="closeChModal()">취소</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let users = JSON.parse(localStorage.getItem('ib_users')||'[]');
+let currentUser = JSON.parse(localStorage.getItem('ib_current')||'null');
+let posts = JSON.parse(localStorage.getItem('ib_posts')||'null') || getDefaultPosts();
+let selectedTags = [];
+let currentChIdx = null;
+
+// Default community posts
+function getDefaultPosts(){
+  return [
+    {id:1,author:'김철수',avatar:'👑',tag:'인증',body:'오늘 푸쉬업 200개 달성! AI 카운팅으로 정확하게 측정됨 💪',record:{exercise:'푸쉬업',reps:200,time:'18:32'},likes:24,liked:false,time:'2시간 전',comments:[{author:'박지훈',av:'⚔️',body:'대단하네요! 저도 목표로 삼겠습니다'},{author:'이수민',av:'💪',body:'와.. 저는 아직 100개도 힘든데 ㅠㅠ'}]},
+    {id:2,author:'이수민',avatar:'💪',tag:'챌린지',body:'30일 챌린지 15일차 완료! 절반 왔다. 매일 아침 6시에 일어나서 운동하는 루틴이 잡혔어요 🔥',record:null,likes:18,liked:false,time:'5시간 전',comments:[{author:'정유진',av:'✨',body:'응원합니다! 화이팅!!'}]},
+    {id:3,author:'박지훈',avatar:'⚔️',tag:'기록',body:'스쿼트 챌린지 참여 중! 오늘은 150개 완료. 허벅지가 터질 것 같지만 포기는 없다.',record:{exercise:'스쿼트',reps:150,time:'12:45'},likes:11,liked:false,time:'8시간 전',comments:[]},
+    {id:4,author:'정유진',avatar:'✨',tag:'인증',body:'턱걸이 처음으로 10개 성공했어요!! AI 자세 피드백 덕분에 올바른 폼으로 할 수 있게 됐습니다 ㅠㅠ 감사해요',record:{exercise:'턱걸이',reps:10,time:'03:20'},likes:35,liked:false,time:'1일 전',comments:[{author:'김철수',av:'👑',body:'정말 대단해요! 이제 20개 목표로!'},{author:'한민준',av:'🐉',body:'폼 교정에 AI가 최고죠 ㅎㅎ'}]},
+  ];
+}
+
+// ═══════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════
+const AVATARS = ['😀','💪','🔥','⚔️','🦁','🐉','✨','👑','🏋️','🎯'];
+
+function switchAuthTab(tab){
+  document.querySelectorAll('.auth-tab').forEach((t,i)=>{
+    t.classList.toggle('active', (i===0&&tab==='login')||(i===1&&tab==='signup'));
+  });
+  document.getElementById('loginForm').classList.toggle('hidden', tab!=='login');
+  document.getElementById('signupForm').classList.toggle('hidden', tab!=='signup');
+}
+
+function doLogin(){
+  const email = document.getElementById('loginEmail').value.trim();
+  const pw = document.getElementById('loginPw').value;
+  const errEl = document.getElementById('loginErr');
+  if(!email||!pw){errEl.textContent='이메일과 비밀번호를 입력하세요.';return;}
+  const user = users.find(u=>u.email===email&&u.pw===pw);
+  if(!user){errEl.textContent='이메일 또는 비밀번호가 올바르지 않습니다.';return;}
+  loginSuccess(user);
+}
+
+function doSignup(){
+  const name = document.getElementById('signupName').value.trim();
+  const email = document.getElementById('signupEmail').value.trim();
+  const pw = document.getElementById('signupPw').value;
+  const errEl = document.getElementById('signupErr');
+  if(!name||!email||!pw){errEl.textContent='모든 항목을 입력하세요.';return;}
+  if(pw.length<6){errEl.textContent='비밀번호는 6자 이상이어야 합니다.';return;}
+  if(users.find(u=>u.email===email)){errEl.textContent='이미 사용 중인 이메일입니다.';return;}
+  const user = {
+    id: Date.now(), name, email, pw,
+    avatar: AVATARS[Math.floor(Math.random()*AVATARS.length)],
+    points: 100, totalReps: 0, sets: [],
+    bests: {pushup:0,pullup:0,squat:0,situp:0,dips:0},
+    joinedChallenges: [], challengeProgress: {},
+    createdAt: new Date().toISOString()
+  };
+  users.push(user);
+  saveUsers();
+  loginSuccess(user);
+}
+
+function demoLogin(){
+  let demo = users.find(u=>u.email==='demo@ironbody.kr');
+  if(!demo){
+    demo = {
+      id:999,name:'데모유저',email:'demo@ironbody.kr',pw:'demo123',
+      avatar:'🎮',points:1200,totalReps:340,sets:[],
+      bests:{pushup:42,pullup:8,squat:60,situp:35,dips:15},
+      joinedChallenges:[0],challengeProgress:{0:{current:42,target:100}},
+      createdAt: new Date().toISOString()
+    };
+    users.push(demo);
+    saveUsers();
+  }
+  loginSuccess(demo);
+}
+
+function loginSuccess(user){
+  currentUser = user;
+  localStorage.setItem('ib_current', JSON.stringify(user));
+  document.getElementById('authScreen').classList.add('hidden');
+  document.getElementById('mainNav').classList.remove('hidden');
+  updateNavUI();
+  goPage('home');
+  animateHomeStats();
+  showToast(`환영합니다, ${user.name}님! 💪`);
+}
+
+function doLogout(){
+  currentUser = null;
+  localStorage.removeItem('ib_current');
+  closeProfile();
+  document.getElementById('mainNav').classList.add('hidden');
+  document.getElementById('authScreen').classList.remove('hidden');
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  stopCam();
+}
+
+function saveUsers(){
+  localStorage.setItem('ib_users', JSON.stringify(users));
+}
+
+function saveCurrentUser(){
+  const idx = users.findIndex(u=>u.id===currentUser.id);
+  if(idx>=0) users[idx]=currentUser;
+  saveUsers();
+  localStorage.setItem('ib_current', JSON.stringify(currentUser));
+  updateNavUI();
+}
+
+function updateNavUI(){
+  if(!currentUser)return;
+  document.getElementById('navUsername').textContent = currentUser.name;
+  document.getElementById('navPts').textContent = currentUser.points.toLocaleString();
+  document.getElementById('navAvatar').textContent = currentUser.avatar;
+  // Simple rank calc
+  const all = users.filter(u=>u.id!==999||u===currentUser);
+  all.sort((a,b)=>b.totalReps-a.totalReps);
+  const rank = all.findIndex(u=>u.id===currentUser.id)+1;
+  document.getElementById('navRank').textContent = rank>0?`랭킹 #${rank}`:'랭킹 —';
+}
+
+// ═══════════════════════════════════════════
+// PAGE ROUTING
+// ═══════════════════════════════════════════
+function goPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  const ni = document.getElementById('ni-'+name);
+  if(ni) ni.classList.add('active');
+  if(name==='ranking') renderRanking();
+  if(name==='challenge') renderChallenges();
+  if(name==='community') renderCommunity();
+}
+
+// Home stat animation
+function animateHomeStats(){
+  animNum(document.getElementById('hs1'), 12847, 1400);
+  animNum(document.getElementById('hs2'), 4209331+((currentUser?.totalReps)||0), 1800);
+}
+function animNum(el, end, dur){
+  let start=0, t0=null;
+  const step=(ts)=>{
+    if(!t0) t0=ts;
+    const p=Math.min((ts-t0)/dur,1);
+    el.textContent=Math.floor(p*end).toLocaleString();
+    if(p<1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+// ═══════════════════════════════════════════
+// MEDIAPIPE WORKOUT
+// ═══════════════════════════════════════════
+let pose=null, camera=null;
+let isRunning=false;
+let currentEx='pushup';
+let repCount=0, totalReps=0, setCount=0;
+let repState='up';
+let angleSmooth=[];
+let timerSec=0, timerInt=null;
+let sessionSets=[];
+
+// Exercise configs: landmarks, down/up thresholds, flip state logic
+const EX_CONFIG = {
+  pushup: {
+    joints:[[11,13,15],[12,14,16]], // left + right arm
+    down:90, up:155,
+    downFb: '내려갔습니다 ✓ 이제 올라오세요',
+    upFb: '완벽! 푸쉬업 {{n}}회 🔥',
+    formTips:['더 내려가세요 ↓','팔을 더 펴세요 ↑','좋은 자세입니다!'],
+    label:'PUSHUP'
+  },
+  pullup: {
+    joints:[[11,13,15],[12,14,16]],
+    down:155, up:60,  // inverted: arms straight=down, bent=up
+    downFb: '내려갔습니다 (팔 펴기) ✓',
+    upFb: '완벽! 턱걸이 {{n}}회 🔥',
+    formTips:['더 올라오세요 ↑','완전히 내려오세요 ↓','좋은 자세!'],
+    label:'PULLUP', invertCount:true
+  },
+  squat: {
+    joints:[[23,25,27],[24,26,28]], // hip, knee, ankle
+    down:90, up:160,
+    downFb: '스쿼트 자세 ✓ 이제 올라오세요',
+    upFb: '완벽! 스쿼트 {{n}}회 🔥',
+    formTips:['더 내려가세요 ↓','무릎이 발끝 방향으로','좋은 자세!'],
+    label:'SQUAT'
+  },
+  situp: {
+    joints:[[11,23,25],[12,24,26]], // shoulder, hip, knee
+    down:55, up:130,
+    downFb: '올라갔습니다 ✓ 이제 내려오세요',
+    upFb: '완벽! 싯업 {{n}}회 🔥',
+    formTips:['더 올라오세요 ↑','천천히 내려오세요 ↓','코어에 힘주세요!'],
+    label:'SITUP', invertCount:true
+  },
+  dips: {
+    joints:[[11,13,15],[12,14,16]],
+    down:75, up:155,
+    downFb: '내려갔습니다 ✓ 이제 올라오세요',
+    upFb: '완벽! 딥스 {{n}}회 🔥',
+    formTips:['더 내려가세요 ↓','팔을 완전히 펴세요 ↑','좋은 자세!'],
+    label:'DIPS'
+  }
+};
+
+function calcAngle(A,B,C){
+  const ab={x:A.x-B.x,y:A.y-B.y};
+  const cb={x:C.x-B.x,y:C.y-B.y};
+  const dot=ab.x*cb.x+ab.y*cb.y;
+  const mag=Math.sqrt((ab.x**2+ab.y**2))*Math.sqrt((cb.x**2+cb.y**2));
+  if(mag===0)return 90;
+  return Math.round(Math.acos(Math.max(-1,Math.min(1,dot/mag)))*180/Math.PI);
+}
+
+function getSmoothedAngle(raw){
+  angleSmooth.push(raw);
+  if(angleSmooth.length>6) angleSmooth.shift();
+  return Math.round(angleSmooth.reduce((a,b)=>a+b,0)/angleSmooth.length);
+}
+
+function onPoseResults(results){
+  const canvas=document.getElementById('outputCanvas');
+  const ctx=canvas.getContext('2d');
+  canvas.width=results.image.width;
+  canvas.height=results.image.height;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  if(!results.poseLandmarks){
+    setFb('전신이 카메라에 보이지 않습니다. 거리를 조정하세요.','warn');
+    return;
+  }
+
+  const lm=results.poseLandmarks;
+  drawSkeleton(ctx,lm,canvas.width,canvas.height);
+
+  const cfg=EX_CONFIG[currentEx];
+  // Use best visible joint set
+  let bestAngle=null, bestVis=0;
+  for(const [ai,bi,ci] of cfg.joints){
+    const vis=(lm[ai].visibility||0)+(lm[bi].visibility||0)+(lm[ci].visibility||0);
+    if(vis>bestVis){
+      bestVis=vis;
+      bestAngle=calcAngle({x:lm[ai].x,y:lm[ai].y},{x:lm[bi].x,y:lm[bi].y},{x:lm[ci].x,y:lm[ci].y});
+      // Draw angle at joint B
+      const jx=lm[bi].x*canvas.width, jy=lm[bi].y*canvas.height;
+      ctx.save();
+      ctx.font='bold 20px Bebas Neue';
+      ctx.fillStyle='#e8ff00';
+      ctx.shadowBlur=12;ctx.shadowColor='#e8ff00';
+      ctx.fillText(bestAngle+'°', jx+12, jy-8);
+      ctx.restore();
+    }
+  }
+
+  const angle=getSmoothedAngle(bestAngle||90);
+  const acc=Math.round(bestVis/3*100);
+  document.getElementById('hudAccuracy').textContent='정확도: '+acc+'%';
+
+  // Show angle overlay
+  const ao=document.getElementById('angleOverlay');
+  if(isRunning){ao.textContent=angle+'°';ao.style.opacity='.65';}
+
+  if(isRunning) processRep(angle, cfg, acc);
+}
+
+function processRep(angle, cfg, acc){
+  const invertCount = cfg.invertCount;
+  let counted=false;
+
+  if(!invertCount){
+    // Normal: down when angle < cfg.down, up when angle > cfg.up
+    if(angle < cfg.down && repState==='up'){
+      repState='down';
+      setFb(cfg.downFb,'');
+    } else if(angle > cfg.up && repState==='down'){
+      repState='up';
+      counted=true;
+    } else if(repState==='up'){
+      const pct=Math.max(0,Math.min(100,((angle-cfg.up)/(180-cfg.up))*100));
+      document.getElementById('repProgressFill').style.width=(100-pct)+'%';
+      if(angle<cfg.up+30) setFb(cfg.formTips[0],'');
+    }
+  } else {
+    // Inverted (pullup/situp)
+    if(angle > cfg.down && repState==='up'){
+      repState='down';
+      setFb(cfg.downFb,'');
+    } else if(angle < cfg.up && repState==='down'){
+      repState='up';
+      counted=true;
+    }
+  }
+
+  if(counted){
+    repCount++;
+    totalReps++;
+    document.getElementById('mRep').textContent=repCount;
+    document.getElementById('mTotal').textContent=totalReps;
+    popEl('mRep');
+    flashRep();
+    const fb=cfg.upFb.replace('{{n}}',repCount);
+    setFb(fb,'good');
+    // Update user total
+    if(currentUser){
+      currentUser.totalReps=totalReps;
+      if(repCount>(currentUser.bests[currentEx]||0)) currentUser.bests[currentEx]=repCount;
+      currentUser.points+=2;
+      saveCurrentUser();
+    }
+    // Update challenge progress
+    updateChallengeProgress();
+  }
+}
+
+function drawSkeleton(ctx, lm, w, h){
+  const PAIRS=[[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[24,26],[25,27],[26,28],[27,29],[28,30]];
+  ctx.lineWidth=2.5;
+  PAIRS.forEach(([a,b])=>{
+    if(!lm[a]||!lm[b])return;
+    if((lm[a].visibility||0)<0.3||(lm[b].visibility||0)<0.3)return;
+    ctx.beginPath();
+    ctx.moveTo(lm[a].x*w,lm[a].y*h);
+    ctx.lineTo(lm[b].x*w,lm[b].y*h);
+    ctx.strokeStyle='rgba(0,212,255,0.65)';
+    ctx.stroke();
+  });
+  const JOINTS=[11,12,13,14,15,16,23,24,25,26,27,28];
+  JOINTS.forEach(i=>{
+    if(!lm[i]||(lm[i].visibility||0)<0.3)return;
+    ctx.beginPath();
+    ctx.arc(lm[i].x*w,lm[i].y*h,5,0,Math.PI*2);
+    ctx.fillStyle='#e8ff00';
+    ctx.shadowBlur=8;ctx.shadowColor='#e8ff00';
+    ctx.fill();
+    ctx.shadowBlur=0;
+  });
+}
+
+async function startCam(){
+  document.getElementById('btnStart').classList.add('hidden');
+  document.getElementById('btnStop').classList.remove('hidden');
+  document.getElementById('btnSaveSet').classList.remove('hidden');
+  document.getElementById('hudLive').textContent='● 로딩...';
+  document.getElementById('sdot').className='sdot';
+  document.getElementById('stext').textContent='AI 초기화 중...';
+
+  pose=new Pose({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`});
+  pose.setOptions({modelComplexity:1,smoothLandmarks:true,enableSegmentation:false,minDetectionConfidence:.6,minTrackingConfidence:.6});
+  pose.onResults(onPoseResults);
+
+  const video=document.getElementById('inputVideo');
+  camera=new Camera(video,{
+    onFrame:async()=>{await pose.send({image:video});},
+    width:1280,height:720
+  });
+
+  try{
+    await camera.start();
+    isRunning=true;
+    document.getElementById('hudLive').textContent='● LIVE';
+    document.getElementById('hudLive').className='hud-chip green';
+    document.getElementById('sdot').className='sdot live';
+    document.getElementById('stext').textContent='감지 중';
+    startTimer();
+    setFb('준비됐습니다! 운동을 시작하세요 💪','good');
+    showToast('AI 카운팅 시작! 카메라 앞에서 운동하세요 🎯');
+  }catch(e){
+    document.getElementById('hudLive').textContent='● 오류';
+    document.getElementById('stext').textContent='카메라 접근 실패';
+    setFb('카메라 권한이 필요합니다. 브라우저 주소창 옆 카메라 아이콘을 클릭하여 허용해주세요.','warn');
+    document.getElementById('btnStart').classList.remove('hidden');
+    document.getElementById('btnStop').classList.add('hidden');
+    document.getElementById('btnSaveSet').classList.add('hidden');
+    showToast('⚠️ 카메라 접근 권한을 허용해주세요');
+  }
+}
+
+function stopCam(){
+  if(camera){camera.stop();camera=null;}
+  if(pose){pose.close();pose=null;}
+  isRunning=false;
+  clearInterval(timerInt);
+  document.getElementById('btnStart').classList.remove('hidden');
+  document.getElementById('btnStop').classList.add('hidden');
+  document.getElementById('btnSaveSet').classList.add('hidden');
+  document.getElementById('hudLive').textContent='● 종료';
+  document.getElementById('hudLive').className='hud-chip red';
+  document.getElementById('sdot').className='sdot';
+  document.getElementById('stext').textContent='종료됨';
+  document.getElementById('angleOverlay').style.opacity='0';
+  const ctx=document.getElementById('outputCanvas').getContext('2d');
+  ctx.clearRect(0,0,9999,9999);
+  if(repCount>0) saveSet();
+  showToast('운동 종료! 수고하셨습니다 💪');
+}
+
+function resetReps(){
+  repCount=0; repState='up'; angleSmooth=[];
+  document.getElementById('mRep').textContent='0';
+  document.getElementById('repProgressFill').style.width='0%';
+  setFb('초기화되었습니다.','');
+}
+
+function saveSet(){
+  if(repCount===0){showToast('기록된 횟수가 없습니다');return;}
+  setCount++;
+  const setData={set:setCount,ex:currentEx,reps:repCount,time:fmtTime(timerSec)};
+  sessionSets.push(setData);
+  if(currentUser){
+    currentUser.sets=currentUser.sets||[];
+    currentUser.sets.push({...setData,date:new Date().toISOString()});
+    currentUser.points+=repCount;
+    if(repCount>(currentUser.bests[currentEx]||0)) currentUser.bests[currentEx]=repCount;
+    saveCurrentUser();
+  }
+  renderSetsLog();
+  showToast(`세트 ${setCount} 저장! ${currentEx} ${repCount}회 (+${repCount}P) 🏆`);
+  resetReps();
+  document.getElementById('mSet').textContent=setCount;
+}
+
+function renderSetsLog(){
+  const el=document.getElementById('setsLog');
+  if(sessionSets.length===0){
+    el.innerHTML='<div style="color:var(--muted);font-size:.82rem;font-family:\'Barlow Condensed\',sans-serif;text-align:center;padding:.8rem 0;">아직 저장된 세트가 없습니다</div>';
+    return;
+  }
+  const EX_KR={pushup:'푸쉬업',pullup:'턱걸이',squat:'스쿼트',situp:'싯업',dips:'딥스'};
+  el.innerHTML=sessionSets.slice().reverse().map(s=>`
+    <div class="set-row">
+      <span class="sr-num">세트 ${s.set}</span>
+      <span class="sr-ex">${EX_KR[s.ex]||s.ex}</span>
+      <span class="sr-reps">${s.reps}회</span>
+      <span style="color:var(--muted);font-size:.72rem;font-family:'Barlow Condensed',sans-serif;">${s.time}</span>
+    </div>`).join('');
+}
+
+function selEx(name, btn){
+  currentEx=name;
+  repState='up'; angleSmooth=[];
+  document.querySelectorAll('.ex-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('hudExercise').textContent=EX_CONFIG[name].label+' MODE';
+  setFb(`${name} 모드로 전환됐습니다.`,'');
+}
+
+function startTimer(){
+  timerSec=0; clearInterval(timerInt);
+  timerInt=setInterval(()=>{timerSec++;document.getElementById('mTimer').textContent=fmtTime(timerSec);},1000);
+}
+function fmtTime(s){return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+
+function setFb(msg, type){
+  const el=document.getElementById('feedbackBox');
+  el.textContent=msg; el.className=type||'';
+}
+
+function flashRep(){
+  const el=document.getElementById('repFlash');
+  el.style.opacity='1'; setTimeout(()=>el.style.opacity='0',130);
+}
+
+function popEl(id){
+  const el=document.getElementById(id);
+  el.classList.add('pop'); setTimeout(()=>el.classList.remove('pop'),160);
+}
+
+// ═══════════════════════════════════════════
+// RANKING
+// ═══════════════════════════════════════════
+const MOCK_USERS=[
+  {name:'김철수',avatar:'👑',loc:'서울',score:2840,change:'+2',badges:['🔥연속7일','💎PRO'],bests:{pushup:65,pullup:18,squat:90,situp:55,dips:30}},
+  {name:'박지훈',avatar:'⚔️',loc:'부산',score:2610,change:'0', badges:['🏆챌린지3'],bests:{pushup:50,pullup:12,squat:70,situp:40,dips:22}},
+  {name:'이수민',avatar:'💪',loc:'대구',score:2455,change:'+5',badges:['⚡스피드'],bests:{pushup:48,pullup:10,squat:65,situp:38,dips:20}},
+  {name:'최동혁',avatar:'🦁',loc:'인천',score:2201,change:'-1',badges:[],bests:{pushup:40,pullup:8,squat:55,situp:32,dips:15}},
+  {name:'정유진',avatar:'✨',loc:'광주',score:1988,change:'+8',badges:['💎PRO'],bests:{pushup:35,pullup:6,squat:50,situp:28,dips:12}},
+  {name:'한민준',avatar:'🐉',loc:'대전',score:1720,change:'+3',badges:[],bests:{pushup:30,pullup:5,squat:45,situp:25,dips:10}},
+  {name:'오세진',avatar:'🏋️',loc:'울산',score:1540,change:'-2',badges:[],bests:{pushup:28,pullup:4,squat:40,situp:22,dips:8}},
+  {name:'강나현',avatar:'✨',loc:'수원',score:1330,change:'+1',badges:['🔥연속3일'],bests:{pushup:25,pullup:3,squat:38,situp:20,dips:7}},
+];
+
+let curRankTab='weekly', curExFilter='all';
+
+function renderRanking(){
+  const medals=['gold','silver','bronze'];
+  const medalE=['🥇','🥈','🥉'];
+
+  // Inject current user
+  let data=[...MOCK_USERS];
+  if(currentUser&&currentUser.totalReps>0){
+    const myScore=currentUser.totalReps*10+currentUser.points;
+    data.push({name:currentUser.name,avatar:currentUser.avatar,loc:'나',score:myScore,change:'NEW',badges:['신규'],isMe:true,bests:currentUser.bests||{}});
+    data.sort((a,b)=>b.score-a.score);
+  }
+
+  const EX_KR={all:'전체',pushup:'푸쉬업',pullup:'턱걸이',squat:'스쿼트',situp:'싯업',dips:'딥스'};
+
+  document.getElementById('rankList').innerHTML=data.map((r,i)=>{
+    const rank=i+1;
+    const mc=rank<=3?medals[rank-1]:'norm';
+    const me=r.isMe?'me-row':'';
+    const chCls=r.change.startsWith('+')?'up':r.change==='0'?'eq':'dn';
+    const chTxt=r.change==='0'?'—':r.change;
+    const score=curExFilter!=='all'?(r.bests&&r.bests[curExFilter]?r.bests[curExFilter]+'회':'—'):r.score.toLocaleString();
+    return `
+    <div class="rank-row r${rank<=3?rank:''} ${me}">
+      <div class="rn ${mc}">${rank<=3?medalE[rank-1]:rank}</div>
+      <div class="ru">
+        <div class="rav" style="${rank===1?'border-color:var(--gold)':rank===2?'border-color:var(--silver)':rank===3?'border-color:var(--bronze)':r.isMe?'border-color:var(--accent)':''}">${r.avatar}</div>
+        <div>
+          <div class="rname" style="${r.isMe?'color:var(--accent)':''}">${r.name}${r.isMe?' (나)':''}</div>
+          <div class="rtag">${r.loc}</div>
+        </div>
+      </div>
+      <div class="rscore ${rank>3&&!r.isMe?'dim':''}">${score}</div>
+      <div class="rch ${chCls}">${chTxt}</div>
+      <div class="rbdg">${(r.badges||[]).map(b=>`<span class="bdg">${b}</span>`).join('')}</div>
+    </div>`;
+  }).join('');
+}
+
+function switchRankTab(el,type){
+  curRankTab=type;
+  document.querySelectorAll('.rank-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active'); renderRanking();
+}
+function switchExFilter(el,type){
+  curExFilter=type;
+  document.querySelectorAll('.filter-pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active'); renderRanking();
+}
+
+// ═══════════════════════════════════════════
+// CHALLENGES
+// ═══════════════════════════════════════════
+const CHALLENGES=[
+  {id:0,tag:'hot',tagLabel:'🔥 HOT',name:'푸쉬업 100 스피드런',desc:'가장 빠르게 푸쉬업 100개를 완료하라. AI가 모든 동작을 실시간 검증한다.',days:'3일',method:'AI 카운팅',reward:'🎁 5,000P + 푸쉬업 바',ppl:'2,341',prog:65,target:100,ex:'pushup'},
+  {id:1,tag:'wk',tagLabel:'⭐ WEEKLY',name:'30일 연속 운동',desc:'30일 동안 매일 운동 기록을 제출하라. 하루라도 빠지면 실격.',days:'17일',method:'기록 제출',reward:'🎁 15,000P',ppl:'891',prog:40,target:30,ex:'all'},
+  {id:2,tag:'new',tagLabel:'✨ NEW',name:'딥스 MAX 기록',desc:'딥스 최대 횟수 1회 측정. 정자세로만 카운팅. 이번 주 1등을 노려라.',days:'6일',method:'AI 카운팅',reward:'🎁 3,000P',ppl:'123',prog:15,target:30,ex:'dips'},
+  {id:3,tag:'hot',tagLabel:'🔥 HOT',name:'스쿼트 200챌린지',desc:'총 200개 스쿼트를 가장 빠른 시간 내에 완료하라.',days:'5일',method:'AI 카운팅',reward:'🎁 4,000P + 보조밴드',ppl:'1,020',prog:50,target:200,ex:'squat'},
+  {id:4,tag:'wk',tagLabel:'⭐ WEEKLY',name:'턱걸이 10개 달성',desc:'턱걸이 10개를 정자세로 완료하라. 초보자도 도전 가능!',days:'4일',method:'AI 카운팅',reward:'🎁 2,500P',ppl:'456',prog:30,target:10,ex:'pullup'},
+  {id:5,tag:'new',tagLabel:'✨ NEW',name:'싯업 50개 챌린지',desc:'싯업 50개를 하루에 완료. 매일 기록을 제출하면 추가 포인트.',days:'7일',method:'AI 카운팅',reward:'🎁 3,500P',ppl:'78',prog:10,target:50,ex:'situp'},
+];
+
+function renderChallenges(){
+  // My challenges
+  const myChEl=document.getElementById('myChList');
+  if(!currentUser||!currentUser.joinedChallenges||currentUser.joinedChallenges.length===0){
+    myChEl.innerHTML='<div style="color:var(--muted);font-size:.85rem;font-family:\'Barlow Condensed\',sans-serif;letter-spacing:1px;padding:.8rem 0;">참여 중인 챌린지가 없습니다. 아래에서 챌린지에 참여해보세요!</div>';
+  } else {
+    myChEl.innerHTML=currentUser.joinedChallenges.map(cid=>{
+      const c=CHALLENGES[cid];
+      if(!c)return '';
+      const prog=currentUser.challengeProgress&&currentUser.challengeProgress[cid];
+      const cur=prog?prog.current:0;
+      const pct=Math.min(100,Math.round(cur/c.target*100));
+      return `<div class="my-ch-row">
+        <div>
+          <div class="my-ch-name">${c.name}</div>
+          <div class="my-ch-prog">${cur} / ${c.target} ${c.ex==='all'?'일':'회'} (${pct}%)</div>
+          <div class="prog-bar-wrap"><div class="prog-bar-fill" style="width:${pct}%"></div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:.4rem;align-items:flex-end;">
+          <span style="font-family:'Barlow Condensed',sans-serif;font-size:.72rem;letter-spacing:1px;color:var(--green);">참여 중 ✓</span>
+          <span style="font-family:'Barlow Condensed',sans-serif;font-size:.7rem;color:var(--muted);">잔여 ${c.days}</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // All challenges
+  document.getElementById('chGrid').innerHTML=CHALLENGES.map((c,i)=>{
+    const joined=currentUser&&currentUser.joinedChallenges&&currentUser.joinedChallenges.includes(c.id);
+    return `<div class="ch-card" onclick="openChModal(${i})">
+      <div class="ch-accent-bar"></div>
+      <div class="ch-top">
+        <span class="ch-tag tag-${joined?'done':c.tag}">${joined?'✓ 참여중':c.tagLabel}</span>
+        <span class="ch-ppl">${c.ppl}명</span>
+      </div>
+      <div class="ch-body">
+        <div class="ch-name">${c.name}</div>
+        <div class="ch-prog-wrap"><div class="ch-prog" style="width:${c.prog}%"></div></div>
+        <div class="ch-desc">${c.desc}</div>
+        <div class="ch-meta"><span>⏱ ${c.days}</span><span>📹 ${c.method}</span></div>
+      </div>
+      <div class="ch-foot">
+        <span class="ch-reward">${c.reward}</span>
+        <span class="ch-join ${joined?'ch-joined':''}">${joined?'진행 중 ✓':'참여하기 →'}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openChModal(idx){
+  currentChIdx=idx;
+  const c=CHALLENGES[idx];
+  document.getElementById('chModalTitle').textContent=c.name;
+  document.getElementById('chModalDesc').textContent=c.desc;
+  document.getElementById('chModalReward').textContent='보상: '+c.reward;
+  document.getElementById('chModal').classList.add('open');
+}
+function closeChModal(){document.getElementById('chModal').classList.remove('open');}
+
+function joinChallenge(){
+  if(currentChIdx===null)return;
+  const c=CHALLENGES[currentChIdx];
+  if(!currentUser.joinedChallenges) currentUser.joinedChallenges=[];
+  if(currentUser.joinedChallenges.includes(c.id)){
+    closeChModal(); showToast('이미 참여 중인 챌린지입니다'); return;
+  }
+  currentUser.joinedChallenges.push(c.id);
+  if(!currentUser.challengeProgress) currentUser.challengeProgress={};
+  currentUser.challengeProgress[c.id]={current:0,target:c.target};
+  currentUser.points+=100;
+  saveCurrentUser();
+  closeChModal();
+  renderChallenges();
+  showToast(`챌린지 참여 완료! +100P 🏆 지금 운동하러 가세요`);
+  setTimeout(()=>goPage('workout'),1500);
+}
+
+function updateChallengeProgress(){
+  if(!currentUser||!currentUser.joinedChallenges) return;
+  currentUser.joinedChallenges.forEach(cid=>{
+    const c=CHALLENGES[cid];
+    if(!c||!currentUser.challengeProgress) return;
+    const prog=currentUser.challengeProgress[cid];
+    if(!prog) return;
+    if(c.ex===currentEx||c.ex==='all'){
+      prog.current=Math.min(c.target, (prog.current||0)+1);
+      if(prog.current>=c.target){
+        showToast(`🎉 챌린지 "${c.name}" 완료! 포인트 획득!`);
+        currentUser.points+=parseInt(c.reward.match(/\d+,?\d*/)[0].replace(',',''));
+      }
+    }
+  });
+  saveCurrentUser();
+}
+
+// ═══════════════════════════════════════════
+// COMMUNITY
+// ═══════════════════════════════════════════
+function renderCommunity(){
+  if(currentUser){
+    document.getElementById('composeAvatar').textContent=currentUser.avatar;
+  }
+  renderPosts();
+  renderTopUsers();
+}
+
+function renderPosts(){
+  const feed=document.getElementById('postsFeed');
+  const savedPosts=JSON.parse(localStorage.getItem('ib_posts')||'null')||getDefaultPosts();
+  posts=savedPosts;
+  feed.innerHTML=posts.map((p,pi)=>`
+    <div class="post-card" id="post-${p.id}">
+      <div class="post-head">
+        <div class="post-avatar">${p.avatar||'😀'}</div>
+        <div class="post-meta">
+          <div class="post-name">${p.author}</div>
+          <div class="post-time">${p.time}</div>
+        </div>
+        <div class="post-tag-badge" style="color:var(--accent3);border-color:var(--accent3);background:rgba(0,212,255,.07)">#${p.tag}</div>
+      </div>
+      <div class="post-body">${p.body}</div>
+      ${p.record?`<div class="post-record">
+        <div class="prec-item"><div class="prec-val">${p.record.reps}</div><div class="prec-lbl">${p.record.exercise}</div></div>
+        <div class="prec-item"><div class="prec-val" style="color:var(--accent3)">${p.record.time}</div><div class="prec-lbl">운동 시간</div></div>
+      </div>`:''}
+      <div class="post-actions">
+        <button class="post-action ${p.liked?'liked':''}" onclick="toggleLike(${pi})">
+          ${p.liked?'❤️':'🤍'} ${p.likes}
+        </button>
+        <button class="post-action" onclick="toggleComments(${p.id})">💬 ${p.comments.length}</button>
+        <button class="post-action" onclick="sharePost('${p.author}')">↗ 공유</button>
+      </div>
+      <div class="comments-section" id="cmts-${p.id}">
+        ${p.comments.map(c=>`
+        <div class="comment-row">
+          <div class="comment-av">${c.av||'😀'}</div>
+          <div class="comment-body"><div class="comment-author">${c.author}</div>${c.body}</div>
+        </div>`).join('')}
+        <div class="comment-input-row">
+          <input class="comment-input" id="ci-${p.id}" placeholder="댓글 작성..." onkeydown="if(event.key==='Enter')addComment(${pi},${p.id})">
+          <button class="btn btn-accent btn-xs" onclick="addComment(${pi},${p.id})">등록</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function toggleLike(idx){
+  posts[idx].liked=!posts[idx].liked;
+  posts[idx].likes+=posts[idx].liked?1:-1;
+  savePosts(); renderPosts();
+}
+
+function toggleComments(id){
+  const el=document.getElementById('cmts-'+id);
+  el.classList.toggle('open');
+}
+
+function addComment(pidx, id){
+  const inp=document.getElementById('ci-'+id);
+  const body=inp.value.trim();
+  if(!body)return;
+  posts[pidx].comments.push({author:currentUser?.name||'익명',av:currentUser?.avatar||'😀',body});
+  savePosts(); renderPosts();
+  setTimeout(()=>{document.getElementById('cmts-'+id).classList.add('open');},50);
+}
+
+function sharePost(author){
+  showToast(`${author}님의 게시물 링크가 복사되었습니다!`);
+}
+
+function toggleTag(el, tag){
+  el.classList.toggle('active');
+  if(selectedTags.includes(tag)) selectedTags=selectedTags.filter(t=>t!==tag);
+  else selectedTags.push(tag);
+}
+
+function submitPost(){
+  const body=document.getElementById('postContent').value.trim();
+  if(!body){showToast('내용을 입력해주세요');return;}
+  const newPost={
+    id:Date.now(),
+    author:currentUser?.name||'익명',
+    avatar:currentUser?.avatar||'😀',
+    tag:selectedTags.length?selectedTags[0]:'운동',
+    body,
+    record:currentUser&&currentUser.totalReps>0?{exercise:currentEx,reps:currentUser.bests?.[currentEx]||0,time:'오늘'}:null,
+    likes:0,liked:false,
+    time:'방금 전',
+    comments:[]
+  };
+  posts.unshift(newPost);
+  savePosts();
+  document.getElementById('postContent').value='';
+  selectedTags=[];
+  document.querySelectorAll('.ctag').forEach(t=>t.classList.remove('active'));
+  renderPosts();
+  if(currentUser){currentUser.points+=50;saveCurrentUser();}
+  showToast('게시물이 등록됐습니다! +50P');
+}
+
+function savePosts(){localStorage.setItem('ib_posts',JSON.stringify(posts));}
+
+function renderTopUsers(){
+  const el=document.getElementById('topUsers');
+  const top=[...MOCK_USERS].slice(0,5);
+  if(currentUser&&currentUser.totalReps>0) top.push({name:currentUser.name,avatar:currentUser.avatar,points:currentUser.points,isMe:true});
+  top.sort((a,b)=>(b.score||b.points||0)-(a.score||a.points||0));
+  el.innerHTML=top.slice(0,5).map((u,i)=>`
+    <div class="top-user-row">
+      <div class="tu-rank">${i+1}</div>
+      <div style="font-size:1rem">${u.avatar}</div>
+      <div class="tu-name" style="${u.isMe?'color:var(--accent)':''}">${u.name}${u.isMe?' (나)':''}</div>
+      <div class="tu-pts">${(u.score||u.points||0).toLocaleString()}</div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════
+// PROFILE
+// ═══════════════════════════════════════════
+function openProfile(){
+  if(!currentUser)return;
+  document.getElementById('profileAvBig').textContent=currentUser.avatar;
+  document.getElementById('profileName').textContent=currentUser.name;
+  document.getElementById('profileEmail').textContent=currentUser.email;
+  document.getElementById('ps-total').textContent=(currentUser.totalReps||0).toLocaleString();
+  document.getElementById('ps-pts').textContent=(currentUser.points||0).toLocaleString();
+  const all=users.filter(u=>u.totalReps>0);
+  all.sort((a,b)=>b.totalReps-a.totalReps);
+  const rank=all.findIndex(u=>u.id===currentUser.id);
+  document.getElementById('ps-rank').textContent=rank>=0?'#'+(rank+1):'—';
+
+  const EX_KR={pushup:'푸쉬업',pullup:'턱걸이',squat:'스쿼트',situp:'싯업',dips:'딥스'};
+  const bests=currentUser.bests||{};
+  document.getElementById('profileExList').innerHTML=
+    Object.entries(EX_KR).map(([k,v])=>`
+      <div class="profile-ex-row">
+        <div class="profile-ex-name">${v}</div>
+        <div class="profile-ex-best">${bests[k]||0}회</div>
+      </div>`).join('');
+
+  document.getElementById('profileModal').classList.add('open');
+}
+function closeProfile(){document.getElementById('profileModal').classList.remove('open');}
+
+// ═══════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════
+let toastTimer=null;
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+(function init(){
+  // Auto login if session exists
+  if(currentUser){
+    document.getElementById('authScreen').classList.add('hidden');
+    document.getElementById('mainNav').classList.remove('hidden');
+    updateNavUI();
+    goPage('home');
+    animateHomeStats();
+  }
+})();
+</script>
+</body>
+</html>
