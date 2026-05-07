@@ -540,21 +540,24 @@ window.renderTopUsers = async function(){
 // 챌린지 — 참여/진행도 Firestore 연동
 // ═══════════════════════════════════════
 window.joinChallenge = async function(){
-  if(window.currentChIdx===null) return;
-  const c=CHALLENGES[window.currentChIdx];
+  const idx = window.currentChIdx;
+  if(idx===null||idx===undefined) return;
+  const c=CHALLENGES[idx];
+  if(!c||!window.currentUser) return;
   if(!window.currentUser.joinedChallenges) window.currentUser.joinedChallenges=[];
   if(window.currentUser.joinedChallenges.includes(c.id)){
-    closeChModal(); _toast('이미 참여 중인 챌린지입니다'); return;
+    document.getElementById('chModal').classList.remove('open');
+    _toast('이미 참여 중인 챌린지입니다'); return;
   }
   window.currentUser.joinedChallenges.push(c.id);
   if(!window.currentUser.challengeProgress) window.currentUser.challengeProgress={};
   window.currentUser.challengeProgress[c.id]={current:0,target:c.target};
   window.currentUser.points=(window.currentUser.points||0)+100;
   await saveCurrentUser();
-  closeChModal();
-  renderChallenges();
+  document.getElementById('chModal').classList.remove('open');
+  if(typeof renderChallenges==='function') renderChallenges();
   _toast('챌린지 참여 완료! +100P 🏆');
-  setTimeout(()=>goPage('workout'),1500);
+  setTimeout(()=>{ if(typeof goPage==='function') goPage('workout'); },1500);
 };
 
 // ═══════════════════════════════════════
@@ -2236,7 +2239,9 @@ function renderChallenges(){
 }
 
 function openChModal(idx){
-  currentChIdx=idx;
+  // 일반 script와 Firebase module 모두 같은 값 참조하도록 동기화
+  currentChIdx = idx;
+  window.currentChIdx = idx;
   const c=CHALLENGES[idx];
   document.getElementById('chModalTitle').textContent=c.name;
   document.getElementById('chModalDesc').textContent=c.desc;
@@ -2245,23 +2250,17 @@ function openChModal(idx){
 }
 function closeChModal(){document.getElementById('chModal').classList.remove('open');}
 
+// joinChallenge는 HTML onclick에서 직접 호출됨
+// window.joinChallenge는 Firebase module이 나중에 덮어씀
+// HTML 버튼이 호출하는 시점엔 Firebase module이 이미 로드됐으므로 window.joinChallenge가 최신
 function joinChallenge(){
-  if(currentChIdx===null)return;
-  const c=CHALLENGES[currentChIdx];
-  if(!currentUser.joinedChallenges) currentUser.joinedChallenges=[];
-  if(currentUser.joinedChallenges.includes(c.id)){
-    closeChModal(); showToast('이미 참여 중인 챌린지입니다'); return;
+  if(typeof window.joinChallenge === 'function' && window.joinChallenge.toString().includes('async')){
+    // Firebase async 버전이 등록된 경우
+    window.joinChallenge();
+  } else {
+    // Firebase 아직 안 로드된 경우 — 잠시 후 재시도
+    setTimeout(()=>{ if(typeof window.joinChallenge==='function') window.joinChallenge(); }, 300);
   }
-  currentUser.joinedChallenges.push(c.id);
-  if(!currentUser.challengeProgress) currentUser.challengeProgress={};
-  currentUser.challengeProgress[c.id]={current:0,target:c.target};
-  currentUser.points+=100;
-  saveCurrentUser();
-  closeChModal();
-  renderChallenges();
-  showToast(`챌린지 참여 완료! +100P 🏆 지금 운동하러 가세요`);
-  refreshHomeStatsNow();
-  setTimeout(()=>goPage('workout'),1500);
 }
 
 function updateChallengeProgress(){
