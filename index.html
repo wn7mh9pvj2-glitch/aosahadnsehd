@@ -738,18 +738,40 @@ nav{position:fixed;top:0;width:100%;z-index:600;height:60px;
         <div class="post-compose">
           <div class="compose-row">
             <div class="compose-avatar" id="composeAvatar">😀</div>
-            <textarea class="compose-input" id="postContent" placeholder="오늘의 운동 기록을 공유해보세요!"></textarea>
+            <textarea class="compose-input" id="postContent" placeholder="오늘의 운동을 공유해보세요! 어떤 운동을 했나요?"></textarea>
           </div>
+
+          <!-- 운동 기록 첨부 프리뷰 -->
+          <div id="recordPreview" style="display:none;background:var(--bg2);border:1px solid rgba(232,255,0,.25);padding:.7rem 1rem;margin-top:.7rem;position:relative;">
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:.68rem;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:.5rem;">📎 첨부된 운동 기록</div>
+            <div style="display:flex;gap:1.5rem;align-items:center;" id="recordPreviewBody"></div>
+            <button onclick="removeRecord()" style="position:absolute;top:.5rem;right:.7rem;background:none;border:none;color:var(--muted);font-size:1rem;cursor:pointer;line-height:1;">✕</button>
+          </div>
+
           <div class="compose-footer">
-            <div class="compose-tags">
-              <div class="ctag" onclick="toggleTag(this,'푸쉬업')">#푸쉬업</div>
-              <div class="ctag" onclick="toggleTag(this,'턱걸이')">#턱걸이</div>
-              <div class="ctag" onclick="toggleTag(this,'스쿼트')">#스쿼트</div>
-              <div class="ctag" onclick="toggleTag(this,'인증')">#인증</div>
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
+              <!-- 운동 기록 첨부 버튼 -->
+              <button class="btn btn-outline btn-xs" onclick="attachRecord()" id="attachBtn" style="color:var(--accent3);border-color:var(--accent3);">💪 기록 첨부</button>
+              <div class="compose-tags">
+                <div class="ctag" onclick="toggleTag(this,'인증')">#인증</div>
+                <div class="ctag" onclick="toggleTag(this,'챌린지')">#챌린지</div>
+                <div class="ctag" onclick="toggleTag(this,'팁')">#팁</div>
+                <div class="ctag" onclick="toggleTag(this,'질문')">#질문</div>
+              </div>
             </div>
             <button class="btn btn-accent btn-sm" onclick="submitPost()">게시하기</button>
           </div>
         </div>
+
+        <!-- 기록 첨부 선택 패널 -->
+        <div id="recordPanel" style="display:none;background:var(--bg2);border:1px solid var(--border2);padding:1rem;margin-bottom:1rem;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.8rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:.8rem;">운동 기록 선택</div>
+          <div id="recordList" style="display:flex;flex-direction:column;gap:.4rem;max-height:200px;overflow-y:auto;"></div>
+          <div style="margin-top:.7rem;font-size:.78rem;color:var(--muted);font-family:'Barlow Condensed',sans-serif;">
+            💡 운동하기 탭에서 세트를 저장하면 여기에 나타납니다
+          </div>
+        </div>
+
         <!-- Feed -->
         <div class="posts-feed" id="postsFeed"></div>
       </div>
@@ -763,14 +785,14 @@ nav{position:fixed;top:0;width:100%;z-index:600;height:60px;
         <div class="card">
           <div class="card-title">인기 태그</div>
           <div class="tag-cloud">
+            <div class="t-chip">#인증</div>
+            <div class="t-chip">#챌린지</div>
+            <div class="t-chip">#맨몸운동</div>
+            <div class="t-chip">#팁</div>
+            <div class="t-chip">#질문</div>
             <div class="t-chip">#푸쉬업</div>
             <div class="t-chip">#턱걸이</div>
-            <div class="t-chip">#맨몸운동</div>
-            <div class="t-chip">#챌린지</div>
             <div class="t-chip">#스쿼트</div>
-            <div class="t-chip">#30일</div>
-            <div class="t-chip">#랭킹</div>
-            <div class="t-chip">#인증</div>
           </div>
         </div>
         <div class="card">
@@ -778,8 +800,8 @@ nav{position:fixed;top:0;width:100%;z-index:600;height:60px;
           <div style="font-size:.82rem;color:var(--muted);line-height:1.7;font-family:'Barlow Condensed',sans-serif;letter-spacing:.5px;">
             · 5월 챌린지 시즌 시작!<br>
             · AI 카운팅 정확도 업데이트<br>
-            · 커뮤니티 신고 기능 추가<br>
-            · 새 운동 추가: 딥스 / 버피
+            · 운동 기록 커뮤니티 공유 기능 추가<br>
+            · 새 운동 추가: 딥스
           </div>
         </div>
       </div>
@@ -829,23 +851,31 @@ nav{position:fixed;top:0;width:100%;z-index:600;height:60px;
 
 <script>
 // ═══════════════════════════════════════════
-// STATE
+// STATE — 실제 유저 데이터만 사용
 // ═══════════════════════════════════════════
+// 구버전 더미 데이터 완전 초기화 (최초 1회)
+if(!localStorage.getItem('ib_v2_clean')){
+  localStorage.removeItem('ib_posts');
+  // 유저 목록에서 데모 계정(id:999) 제거
+  const rawUsers = JSON.parse(localStorage.getItem('ib_users')||'[]');
+  const cleanUsers = rawUsers.filter(u => u.id !== 999);
+  localStorage.setItem('ib_users', JSON.stringify(cleanUsers));
+  localStorage.setItem('ib_v2_clean','1');
+}
+
 let users = JSON.parse(localStorage.getItem('ib_users')||'[]');
 let currentUser = JSON.parse(localStorage.getItem('ib_current')||'null');
-let posts = JSON.parse(localStorage.getItem('ib_posts')||'null') || getDefaultPosts();
+// 데모 계정으로 로그인된 상태면 로그아웃 처리
+if(currentUser && currentUser.id === 999){
+  currentUser = null;
+  localStorage.removeItem('ib_current');
+}
+let posts = JSON.parse(localStorage.getItem('ib_posts')||'[]');
+
 let selectedTags = [];
 let currentChIdx = null;
-
-// Default community posts
-function getDefaultPosts(){
-  return [
-    {id:1,author:'김철수',avatar:'👑',tag:'인증',body:'오늘 푸쉬업 200개 달성! AI 카운팅으로 정확하게 측정됨 💪',record:{exercise:'푸쉬업',reps:200,time:'18:32'},likes:24,liked:false,time:'2시간 전',comments:[{author:'박지훈',av:'⚔️',body:'대단하네요! 저도 목표로 삼겠습니다'},{author:'이수민',av:'💪',body:'와.. 저는 아직 100개도 힘든데 ㅠㅠ'}]},
-    {id:2,author:'이수민',avatar:'💪',tag:'챌린지',body:'30일 챌린지 15일차 완료! 절반 왔다. 매일 아침 6시에 일어나서 운동하는 루틴이 잡혔어요 🔥',record:null,likes:18,liked:false,time:'5시간 전',comments:[{author:'정유진',av:'✨',body:'응원합니다! 화이팅!!'}]},
-    {id:3,author:'박지훈',avatar:'⚔️',tag:'기록',body:'스쿼트 챌린지 참여 중! 오늘은 150개 완료. 허벅지가 터질 것 같지만 포기는 없다.',record:{exercise:'스쿼트',reps:150,time:'12:45'},likes:11,liked:false,time:'8시간 전',comments:[]},
-    {id:4,author:'정유진',avatar:'✨',tag:'인증',body:'턱걸이 처음으로 10개 성공했어요!! AI 자세 피드백 덕분에 올바른 폼으로 할 수 있게 됐습니다 ㅠㅠ 감사해요',record:{exercise:'턱걸이',reps:10,time:'03:20'},likes:35,liked:false,time:'1일 전',comments:[{author:'김철수',av:'👑',body:'정말 대단해요! 이제 20개 목표로!'},{author:'한민준',av:'🐉',body:'폼 교정에 AI가 최고죠 ㅎㅎ'}]},
-  ];
-}
+// 운동 후 커뮤니티에 첨부할 기록
+let pendingRecord = null;
 
 // ═══════════════════════════════════════════
 // AUTH
@@ -1426,7 +1456,13 @@ function saveSet(){
     saveCurrentUser();
   }
   renderSetsLog();
-  showToast(`세트 ${setCount} 저장! ${currentEx} ${repCount}회 (+${repCount}P) 🏆`);
+  // 커뮤니티 공유 유도 토스트
+  const EX_KR2={pushup:'푸쉬업',pullup:'턱걸이',squat:'스쿼트',situp:'싯업',dips:'딥스'};
+  showToast(`세트 ${setCount} 저장! ${EX_KR2[currentEx]||currentEx} ${repCount}회 (+${repCount}P) 🏆`);
+  // 3세트 이상이면 커뮤니티 공유 안내
+  if(setCount>=3){
+    setTimeout(()=>showToast('💬 커뮤니티에서 기록을 공유해보세요!'),3200);
+  }
   resetReps();
   document.getElementById('mSet').textContent=setCount;
 }
@@ -1480,55 +1516,67 @@ function popEl(id){
 }
 
 // ═══════════════════════════════════════════
-// RANKING
+// RANKING — 실제 가입 유저만 표시
 // ═══════════════════════════════════════════
-const MOCK_USERS=[
-  {name:'김철수',avatar:'👑',loc:'서울',score:2840,change:'+2',badges:['🔥연속7일','💎PRO'],bests:{pushup:65,pullup:18,squat:90,situp:55,dips:30}},
-  {name:'박지훈',avatar:'⚔️',loc:'부산',score:2610,change:'0', badges:['🏆챌린지3'],bests:{pushup:50,pullup:12,squat:70,situp:40,dips:22}},
-  {name:'이수민',avatar:'💪',loc:'대구',score:2455,change:'+5',badges:['⚡스피드'],bests:{pushup:48,pullup:10,squat:65,situp:38,dips:20}},
-  {name:'최동혁',avatar:'🦁',loc:'인천',score:2201,change:'-1',badges:[],bests:{pushup:40,pullup:8,squat:55,situp:32,dips:15}},
-  {name:'정유진',avatar:'✨',loc:'광주',score:1988,change:'+8',badges:['💎PRO'],bests:{pushup:35,pullup:6,squat:50,situp:28,dips:12}},
-  {name:'한민준',avatar:'🐉',loc:'대전',score:1720,change:'+3',badges:[],bests:{pushup:30,pullup:5,squat:45,situp:25,dips:10}},
-  {name:'오세진',avatar:'🏋️',loc:'울산',score:1540,change:'-2',badges:[],bests:{pushup:28,pullup:4,squat:40,situp:22,dips:8}},
-  {name:'강나현',avatar:'✨',loc:'수원',score:1330,change:'+1',badges:['🔥연속3일'],bests:{pushup:25,pullup:3,squat:38,situp:20,dips:7}},
-];
-
 let curRankTab='weekly', curExFilter='all';
+
+function getRankData(){
+  // localStorage에서 항상 최신 유저 목록 읽기
+  const allUsers = JSON.parse(localStorage.getItem('ib_users')||'[]');
+  return allUsers
+    .filter(u => u.id !== 999) // 데모 계정 제외
+    .map(u => ({
+      id: u.id,
+      name: u.name,
+      avatar: u.avatar||'😀',
+      points: u.points||0,
+      totalReps: u.totalReps||0,
+      bests: u.bests||{},
+      isMe: currentUser && u.id===currentUser.id,
+      joinedChallenges: u.joinedChallenges||[],
+    }))
+    .sort((a,b) => (b.totalReps*10+b.points) - (a.totalReps*10+a.points));
+}
 
 function renderRanking(){
   const medals=['gold','silver','bronze'];
   const medalE=['🥇','🥈','🥉'];
+  const data = getRankData();
 
-  // Inject current user
-  let data=[...MOCK_USERS];
-  if(currentUser&&currentUser.totalReps>0){
-    const myScore=currentUser.totalReps*10+currentUser.points;
-    data.push({name:currentUser.name,avatar:currentUser.avatar,loc:'나',score:myScore,change:'NEW',badges:['신규'],isMe:true,bests:currentUser.bests||{}});
-    data.sort((a,b)=>b.score-a.score);
+  if(data.length===0){
+    document.getElementById('rankList').innerHTML=`
+      <div style="text-align:center;padding:3rem 1rem;color:var(--muted);font-family:'Barlow Condensed',sans-serif;font-size:.9rem;letter-spacing:1px;">
+        아직 등록된 유저가 없습니다.<br>운동을 시작해서 첫 번째 랭커가 되세요! 🏆
+      </div>`;
+    return;
   }
-
-  const EX_KR={all:'전체',pushup:'푸쉬업',pullup:'턱걸이',squat:'스쿼트',situp:'싯업',dips:'딥스'};
 
   document.getElementById('rankList').innerHTML=data.map((r,i)=>{
     const rank=i+1;
     const mc=rank<=3?medals[rank-1]:'norm';
     const me=r.isMe?'me-row':'';
-    const chCls=r.change.startsWith('+')?'up':r.change==='0'?'eq':'dn';
-    const chTxt=r.change==='0'?'—':r.change;
-    const score=curExFilter!=='all'?(r.bests&&r.bests[curExFilter]?r.bests[curExFilter]+'회':'—'):r.score.toLocaleString();
+    const score=curExFilter!=='all'
+      ?(r.bests&&r.bests[curExFilter]?r.bests[curExFilter]+'회':'—')
+      :(r.totalReps*10+r.points).toLocaleString();
+    const borderStyle=rank===1?'border-color:var(--gold)':rank===2?'border-color:var(--silver)':rank===3?'border-color:var(--bronze)':r.isMe?'border-color:var(--accent)':'';
+    const chCount=r.joinedChallenges.length;
+    const badges=[];
+    if(r.totalReps>=1000) badges.push('💪 1000+');
+    if(chCount>0) badges.push(`🏆 챌린지${chCount}`);
+    if(r.isMe) badges.push('나');
     return `
-    <div class="rank-row r${rank<=3?rank:''} ${me}">
+    <div class="rank-row ${rank<=3?'r'+rank:''} ${me}">
       <div class="rn ${mc}">${rank<=3?medalE[rank-1]:rank}</div>
       <div class="ru">
-        <div class="rav" style="${rank===1?'border-color:var(--gold)':rank===2?'border-color:var(--silver)':rank===3?'border-color:var(--bronze)':r.isMe?'border-color:var(--accent)':''}">${r.avatar}</div>
+        <div class="rav" style="${borderStyle}">${r.avatar}</div>
         <div>
           <div class="rname" style="${r.isMe?'color:var(--accent)':''}">${r.name}${r.isMe?' (나)':''}</div>
-          <div class="rtag">${r.loc}</div>
+          <div class="rtag">총 ${r.totalReps.toLocaleString()}회</div>
         </div>
       </div>
       <div class="rscore ${rank>3&&!r.isMe?'dim':''}">${score}</div>
-      <div class="rch ${chCls}">${chTxt}</div>
-      <div class="rbdg">${(r.badges||[]).map(b=>`<span class="bdg">${b}</span>`).join('')}</div>
+      <div class="rch eq">${r.points.toLocaleString()}P</div>
+      <div class="rbdg">${badges.map(b=>`<span class="bdg">${b}</span>`).join('')}</div>
     </div>`;
   }).join('');
 }
@@ -1746,34 +1794,49 @@ function renderCommunity(){
   renderTopUsers();
 }
 
+const EX_KR_MAP={pushup:'푸쉬업',pullup:'턱걸이',squat:'스쿼트',situp:'싯업',dips:'딥스'};
+
 function renderPosts(){
   const feed=document.getElementById('postsFeed');
-  const savedPosts=JSON.parse(localStorage.getItem('ib_posts')||'null')||getDefaultPosts();
-  posts=savedPosts;
-  feed.innerHTML=posts.map((p,pi)=>`
-    <div class="post-card" id="post-${p.id}">
+  posts = JSON.parse(localStorage.getItem('ib_posts')||'[]');
+
+  if(posts.length===0){
+    feed.innerHTML=`
+      <div style="text-align:center;padding:3rem 1rem;color:var(--muted);">
+        <div style="font-size:2.5rem;margin-bottom:1rem;">💪</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1rem;letter-spacing:1px;">
+          아직 게시물이 없습니다.<br>첫 번째로 운동 기록을 공유해보세요!
+        </div>
+      </div>`;
+    return;
+  }
+
+  feed.innerHTML=posts.map((p,pi)=>{
+    const isMyPost = currentUser && p.userId === currentUser.id;
+    const tagColor = p.tag==='인증'?'var(--green)':p.tag==='챌린지'?'var(--accent2)':p.tag==='팁'?'var(--accent3)':'var(--muted)';
+    const tagBg = p.tag==='인증'?'rgba(74,222,128,.08)':p.tag==='챌린지'?'rgba(255,60,60,.08)':p.tag==='팁'?'rgba(0,212,255,.08)':'rgba(100,100,100,.08)';
+    return `
+    <div class="post-card reveal" id="post-${p.id}">
       <div class="post-head">
         <div class="post-avatar">${p.avatar||'😀'}</div>
         <div class="post-meta">
           <div class="post-name">${p.author}</div>
           <div class="post-time">${p.time}</div>
         </div>
-        <div class="post-tag-badge" style="color:var(--accent3);border-color:var(--accent3);background:rgba(0,212,255,.07)">#${p.tag}</div>
+        <div class="post-tag-badge" style="color:${tagColor};border-color:${tagColor};background:${tagBg}">#${p.tag}</div>
+        ${isMyPost?`<button onclick="deletePost(${pi})" style="background:none;border:none;color:var(--muted2);cursor:pointer;font-size:.8rem;margin-left:.4rem;padding:.2rem;" title="삭제">🗑</button>`:''}
       </div>
-      <div class="post-body">${p.body}</div>
-      ${p.record?`<div class="post-record">
-        <div class="prec-item"><div class="prec-val">${p.record.reps}</div><div class="prec-lbl">${p.record.exercise}</div></div>
-        <div class="prec-item"><div class="prec-val" style="color:var(--accent3)">${p.record.time}</div><div class="prec-lbl">운동 시간</div></div>
-      </div>`:''}
+      <div class="post-body">${p.body.replace(/\n/g,'<br>')}</div>
+      ${p.record ? renderRecordCard(p.record) : ''}
       <div class="post-actions">
         <button class="post-action ${p.liked?'liked':''}" onclick="toggleLike(${pi})">
           ${p.liked?'❤️':'🤍'} ${p.likes}
         </button>
-        <button class="post-action" onclick="toggleComments(${p.id})">💬 ${p.comments.length}</button>
-        <button class="post-action" onclick="sharePost('${p.author}')">↗ 공유</button>
+        <button class="post-action" onclick="toggleComments(${p.id})">💬 ${(p.comments||[]).length}</button>
+        <button class="post-action" onclick="copyShareLink('${p.author}')">↗ 공유</button>
       </div>
       <div class="comments-section" id="cmts-${p.id}">
-        ${p.comments.map(c=>`
+        ${(p.comments||[]).map(c=>`
         <div class="comment-row">
           <div class="comment-av">${c.av||'😀'}</div>
           <div class="comment-body"><div class="comment-author">${c.author}</div>${c.body}</div>
@@ -1783,7 +1846,142 @@ function renderPosts(){
           <button class="btn btn-accent btn-xs" onclick="addComment(${pi},${p.id})">등록</button>
         </div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+  initReveal();
+}
+
+function renderRecordCard(record){
+  const EX_ICON={pushup:'💪',pullup:'⬆️',squat:'🦵',situp:'🔥',dips:'🏋️'};
+  const icon = EX_ICON[record.exercise]||'💪';
+  const exName = EX_KR_MAP[record.exercise]||record.exercise;
+  const sets = record.sets||[];
+  if(sets.length>0){
+    const totalReps = sets.reduce((s,st)=>s+st.reps,0);
+    return `<div class="post-record">
+      <div class="prec-item">
+        <div class="prec-val">${icon} ${exName}</div>
+        <div class="prec-lbl">운동 종목</div>
+      </div>
+      <div class="prec-item">
+        <div class="prec-val">${sets.length}</div>
+        <div class="prec-lbl">세트</div>
+      </div>
+      <div class="prec-item">
+        <div class="prec-val">${totalReps}</div>
+        <div class="prec-lbl">총 횟수</div>
+      </div>
+      ${record.duration?`<div class="prec-item"><div class="prec-val" style="color:var(--accent3)">${record.duration}</div><div class="prec-lbl">운동 시간</div></div>`:''}
+    </div>`;
+  }
+  // 단일 기록
+  return `<div class="post-record">
+    <div class="prec-item">
+      <div class="prec-val">${icon} ${exName}</div>
+      <div class="prec-lbl">운동 종목</div>
+    </div>
+    <div class="prec-item">
+      <div class="prec-val">${record.reps||0}</div>
+      <div class="prec-lbl">횟수</div>
+    </div>
+    ${record.time?`<div class="prec-item"><div class="prec-val" style="color:var(--accent3)">${record.time}</div><div class="prec-lbl">운동 시간</div></div>`:''}
+  </div>`;
+}
+
+// ── 기록 첨부 기능 ──────────────────────────
+function attachRecord(){
+  const panel=document.getElementById('recordPanel');
+  const isOpen = panel.style.display==='block';
+  if(isOpen){ panel.style.display='none'; return; }
+
+  // 이 세션의 세트 기록 + 유저의 전체 기록에서 최근 10개
+  const sessionRecs = sessionSets.map(s=>({
+    label:`[이번 세션] ${EX_KR_MAP[s.ex]||s.ex} ${s.reps}회`,
+    data:{ exercise:s.ex, sets:[s], duration:s.time }
+  }));
+
+  const userSets = (currentUser&&currentUser.sets||[]).slice(-10).reverse().map(s=>({
+    label:`${EX_KR_MAP[s.ex]||s.ex} ${s.reps}회 (${s.date?new Date(s.date).toLocaleDateString('ko-KR'):'이전'})`,
+    data:{ exercise:s.ex, sets:[s], duration:s.time }
+  }));
+
+  const all=[...sessionRecs, ...userSets];
+  const listEl=document.getElementById('recordList');
+  if(all.length===0){
+    listEl.innerHTML=`<div style="color:var(--muted);font-size:.82rem;font-family:'Barlow Condensed',sans-serif;text-align:center;padding:1rem;">운동하기 탭에서 세트를 저장하면 여기에 표시됩니다</div>`;
+  } else {
+    listEl.innerHTML=all.map((r,i)=>`
+      <div onclick="selectRecord(${i})" style="padding:.55rem .8rem;background:var(--bg3);border:1px solid var(--border);cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:.82rem;letter-spacing:.5px;transition:all .2s;" onmouseover="this.style.borderColor='rgba(232,255,0,.4)'" onmouseout="this.style.borderColor='var(--border)'">
+        ${r.label}
+      </div>`).join('');
+    listEl._records = all;
+  }
+  panel.style.display='block';
+}
+
+function selectRecord(idx){
+  const listEl=document.getElementById('recordList');
+  const rec = listEl._records[idx];
+  if(!rec) return;
+  pendingRecord = rec.data;
+
+  // 프리뷰 업데이트
+  const preview=document.getElementById('recordPreview');
+  const previewBody=document.getElementById('recordPreviewBody');
+  const exName=EX_KR_MAP[rec.data.exercise]||rec.data.exercise;
+  const totalReps=(rec.data.sets||[]).reduce((s,st)=>s+st.reps,0)||rec.data.reps||0;
+  previewBody.innerHTML=`
+    <div class="prec-item"><div class="prec-val" style="font-size:1.2rem">${exName}</div><div class="prec-lbl">종목</div></div>
+    ${rec.data.sets?.length?`<div class="prec-item"><div class="prec-val" style="font-size:1.2rem">${rec.data.sets.length}</div><div class="prec-lbl">세트</div></div>`:''}
+    <div class="prec-item"><div class="prec-val" style="font-size:1.2rem">${totalReps}</div><div class="prec-lbl">총 횟수</div></div>
+    ${rec.data.duration?`<div class="prec-item"><div class="prec-val" style="font-size:1.2rem;color:var(--accent3)">${rec.data.duration}</div><div class="prec-lbl">시간</div></div>`:''}
+  `;
+  preview.style.display='block';
+  document.getElementById('recordPanel').style.display='none';
+}
+
+function removeRecord(){
+  pendingRecord=null;
+  document.getElementById('recordPreview').style.display='none';
+}
+
+// ── 게시물 올리기 ────────────────────────────
+function submitPost(){
+  const body=document.getElementById('postContent').value.trim();
+  if(!body){showToast('내용을 입력해주세요');return;}
+  const now=new Date();
+  const timeStr=`${now.getFullYear()}.${now.getMonth()+1}.${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const newPost={
+    id:Date.now(),
+    userId:currentUser?.id,
+    author:currentUser?.name||'익명',
+    avatar:currentUser?.avatar||'😀',
+    tag:selectedTags.length?selectedTags[0]:'운동',
+    body,
+    record:pendingRecord||null,
+    likes:0, liked:false,
+    time:timeStr,
+    comments:[]
+  };
+  posts.unshift(newPost);
+  savePosts();
+  // 초기화
+  document.getElementById('postContent').value='';
+  selectedTags=[];
+  pendingRecord=null;
+  document.querySelectorAll('.ctag').forEach(t=>t.classList.remove('active'));
+  document.getElementById('recordPreview').style.display='none';
+  document.getElementById('recordPanel').style.display='none';
+  renderPosts();
+  if(currentUser){currentUser.points+=50;saveCurrentUser();}
+  showToast('게시물이 등록됐습니다! +50P 🎉');
+}
+
+function deletePost(idx){
+  if(!confirm('이 게시물을 삭제하시겠습니까?')) return;
+  posts.splice(idx,1);
+  savePosts(); renderPosts();
+  showToast('게시물이 삭제됐습니다');
 }
 
 function toggleLike(idx){
@@ -1794,19 +1992,24 @@ function toggleLike(idx){
 
 function toggleComments(id){
   const el=document.getElementById('cmts-'+id);
-  el.classList.toggle('open');
+  if(el) el.classList.toggle('open');
 }
 
 function addComment(pidx, id){
   const inp=document.getElementById('ci-'+id);
   const body=inp.value.trim();
   if(!body)return;
-  posts[pidx].comments.push({author:currentUser?.name||'익명',av:currentUser?.avatar||'😀',body});
+  if(!posts[pidx].comments) posts[pidx].comments=[];
+  posts[pidx].comments.push({
+    author:currentUser?.name||'익명',
+    av:currentUser?.avatar||'😀',
+    body
+  });
   savePosts(); renderPosts();
-  setTimeout(()=>{document.getElementById('cmts-'+id).classList.add('open');},50);
+  setTimeout(()=>{const el=document.getElementById('cmts-'+id);if(el)el.classList.add('open');},50);
 }
 
-function sharePost(author){
+function copyShareLink(author){
   showToast(`${author}님의 게시물 링크가 복사되었습니다!`);
 }
 
@@ -1816,44 +2019,25 @@ function toggleTag(el, tag){
   else selectedTags.push(tag);
 }
 
-function submitPost(){
-  const body=document.getElementById('postContent').value.trim();
-  if(!body){showToast('내용을 입력해주세요');return;}
-  const newPost={
-    id:Date.now(),
-    author:currentUser?.name||'익명',
-    avatar:currentUser?.avatar||'😀',
-    tag:selectedTags.length?selectedTags[0]:'운동',
-    body,
-    record:currentUser&&currentUser.totalReps>0?{exercise:currentEx,reps:currentUser.bests?.[currentEx]||0,time:'오늘'}:null,
-    likes:0,liked:false,
-    time:'방금 전',
-    comments:[]
-  };
-  posts.unshift(newPost);
-  savePosts();
-  document.getElementById('postContent').value='';
-  selectedTags=[];
-  document.querySelectorAll('.ctag').forEach(t=>t.classList.remove('active'));
-  renderPosts();
-  if(currentUser){currentUser.points+=50;saveCurrentUser();}
-  showToast('게시물이 등록됐습니다! +50P');
-}
-
 function savePosts(){localStorage.setItem('ib_posts',JSON.stringify(posts));}
 
 function renderTopUsers(){
   const el=document.getElementById('topUsers');
-  const top=[...MOCK_USERS].slice(0,5);
-  if(currentUser&&currentUser.totalReps>0) top.push({name:currentUser.name,avatar:currentUser.avatar,points:currentUser.points,isMe:true});
-  top.sort((a,b)=>(b.score||b.points||0)-(a.score||a.points||0));
-  el.innerHTML=top.slice(0,5).map((u,i)=>`
-    <div class="top-user-row">
+  const allUsers=JSON.parse(localStorage.getItem('ib_users')||'[]').filter(u=>u.id!==999);
+  allUsers.sort((a,b)=>(b.totalReps||0)-(a.totalReps||0));
+  if(allUsers.length===0){
+    el.innerHTML=`<div style="color:var(--muted);font-size:.8rem;font-family:'Barlow Condensed',sans-serif;text-align:center;padding:.8rem 0;letter-spacing:1px;">아직 유저가 없습니다</div>`;
+    return;
+  }
+  el.innerHTML=allUsers.slice(0,5).map((u,i)=>{
+    const isMe=currentUser&&u.id===currentUser.id;
+    return `<div class="top-user-row">
       <div class="tu-rank">${i+1}</div>
-      <div style="font-size:1rem">${u.avatar}</div>
-      <div class="tu-name" style="${u.isMe?'color:var(--accent)':''}">${u.name}${u.isMe?' (나)':''}</div>
-      <div class="tu-pts">${(u.score||u.points||0).toLocaleString()}</div>
-    </div>`).join('');
+      <div style="font-size:1rem">${u.avatar||'😀'}</div>
+      <div class="tu-name" style="${isMe?'color:var(--accent)':''}">${u.name}${isMe?' (나)':''}</div>
+      <div class="tu-pts">${(u.totalReps||0).toLocaleString()}회</div>
+    </div>`;
+  }).join('');
 }
 
 // ═══════════════════════════════════════════
