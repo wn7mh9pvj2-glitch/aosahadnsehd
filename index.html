@@ -597,13 +597,25 @@ nav{position:fixed;top:0;width:100%;z-index:600;height:60px;
       </div>
     </div>
     <div class="hero-stats reveal reveal-d4">
-      <div class="hstat"><div class="hstat-num" id="hs1">0</div><div class="hstat-lbl">활성 유저</div></div>
+      <div class="hstat">
+        <div class="hstat-num" id="hs1">0</div>
+        <div class="hstat-lbl">활성 유저</div>
+      </div>
       <div class="hdiv"></div>
-      <div class="hstat"><div class="hstat-num" id="hs2">0</div><div class="hstat-lbl">총 운동 횟수</div></div>
+      <div class="hstat">
+        <div class="hstat-num" id="hs2">0</div>
+        <div class="hstat-lbl">총 운동 횟수</div>
+      </div>
       <div class="hdiv"></div>
-      <div class="hstat"><div class="hstat-num">38</div><div class="hstat-lbl">진행 챌린지</div></div>
+      <div class="hstat">
+        <div class="hstat-num" id="hs3">0</div>
+        <div class="hstat-lbl">진행 챌린지</div>
+      </div>
       <div class="hdiv"></div>
-      <div class="hstat"><div class="hstat-num" style="color:var(--accent3);animation:blink 1.5s infinite">LIVE</div><div class="hstat-lbl">AI 카운팅</div></div>
+      <div class="hstat">
+        <div class="hstat-num" id="hs4" style="color:var(--accent3)">LIVE</div>
+        <div class="hstat-lbl">AI 카운팅</div>
+      </div>
     </div>
   </section>
 </div>
@@ -944,11 +956,11 @@ function loginSuccess(user){
   localStorage.setItem('ib_current', JSON.stringify(user));
   document.getElementById('authScreen').classList.add('hidden');
   document.getElementById('mainNav').classList.remove('hidden');
-  // 모바일이면 탭바 표시
   if(window.innerWidth<=768) document.getElementById('mobileTabbar').classList.remove('hidden');
   updateNavUI();
   goPage('home');
-  animateHomeStats();
+  // 로그인 후 실제 데이터로 홈 스탯 애니메이션
+  setTimeout(animateHomeStats, 300);
   showToast(`환영합니다, ${user.name}님! 💪`);
 }
 
@@ -1016,14 +1028,78 @@ function goPage(name){
   if(name==='ranking') renderRanking();
   if(name==='challenge') renderChallenges();
   if(name==='community') renderCommunity();
+  if(name==='home') animateHomeStats();
 }
 
-// Home stat animation
-function animateHomeStats(){
-  animNum(document.getElementById('hs1'), 12847, 1400);
-  animNum(document.getElementById('hs2'), 4209331+((currentUser?.totalReps)||0), 1800);
+// ═══════════════════════════════════════════
+// HOME STATS — 실시간 실제 데이터 반영
+// ═══════════════════════════════════════════
+let homeStatsInterval = null;
+
+function getHomeStats(){
+  const allUsers = JSON.parse(localStorage.getItem('ib_users')||'[]').filter(u=>u.id!==999);
+  const totalRepsAll = allUsers.reduce((sum,u)=>sum+(u.totalReps||0), 0);
+  // 참여 중인 챌린지: 모든 유저의 joinedChallenges 합산 (중복 제거)
+  const joinedSet = new Set();
+  allUsers.forEach(u=>(u.joinedChallenges||[]).forEach(cid=>joinedSet.add(cid)));
+  const activeChallenges = joinedSet.size;
+  return {
+    users: allUsers.length,
+    totalReps: totalRepsAll,
+    challenges: activeChallenges,
+  };
 }
+
+function animateHomeStats(){
+  const stats = getHomeStats();
+  const e1=document.getElementById('hs1');
+  const e2=document.getElementById('hs2');
+  const e3=document.getElementById('hs3');
+  const e4=document.getElementById('hs4');
+
+  if(e1) animNum(e1, stats.users, 900);
+  if(e2) animNum(e2, stats.totalReps, 1400);
+  if(e3) animNum(e3, stats.challenges, 700);
+  // LIVE 텍스트 — 깜빡임 스타일 유지
+  if(e4){
+    e4.textContent='LIVE';
+    e4.style.color='var(--accent3)';
+    e4.style.animation='blink 1.5s infinite';
+  }
+
+  // 30초마다 수치를 실시간 갱신 (홈 페이지 활성 시)
+  clearInterval(homeStatsInterval);
+  homeStatsInterval = setInterval(()=>{
+    if(!document.getElementById('page-home').classList.contains('active')) return;
+    const fresh = getHomeStats();
+    updateStatSmoothly(e1, fresh.users);
+    updateStatSmoothly(e2, fresh.totalReps);
+    updateStatSmoothly(e3, fresh.challenges);
+  }, 30000);
+}
+
+// 숫자가 바뀔 때 부드럽게 전환
+function updateStatSmoothly(el, newVal){
+  if(!el) return;
+  const raw = el.textContent.replace(/,/g,'');
+  const current = parseInt(raw)||0;
+  if(current===newVal) return;
+  // 증가 시 짧은 카운트업, 감소 시 즉시 변경
+  if(newVal > current){
+    animNum(el, newVal, 600);
+  } else {
+    el.textContent = newVal.toLocaleString();
+  }
+  // 변경 시 살짝 강조 효과
+  el.style.transition='color .3s';
+  el.style.color='var(--accent)';
+  setTimeout(()=>{
+    el.style.color='';
+  }, 800);
+}
+
 function animNum(el, end, dur){
+  if(!el) return;
   let start=0, t0=null;
   const step=(ts)=>{
     if(!t0) t0=ts;
@@ -1032,6 +1108,15 @@ function animNum(el, end, dur){
     if(p<1) requestAnimationFrame(step);
   };
   requestAnimationFrame(step);
+}
+
+// 운동 완료/세트 저장마다 홈 스탯 즉시 반영
+function refreshHomeStatsNow(){
+  if(!document.getElementById('page-home').classList.contains('active')) return;
+  const stats = getHomeStats();
+  updateStatSmoothly(document.getElementById('hs1'), stats.users);
+  updateStatSmoothly(document.getElementById('hs2'), stats.totalReps);
+  updateStatSmoothly(document.getElementById('hs3'), stats.challenges);
 }
 
 // ═══════════════════════════════════════════
@@ -1465,6 +1550,8 @@ function saveSet(){
   }
   resetReps();
   document.getElementById('mSet').textContent=setCount;
+  // 홈 스탯 즉시 반영
+  refreshHomeStatsNow();
 }
 
 function renderSetsLog(){
@@ -1762,6 +1849,7 @@ function joinChallenge(){
   closeChModal();
   renderChallenges();
   showToast(`챌린지 참여 완료! +100P 🏆 지금 운동하러 가세요`);
+  refreshHomeStatsNow();
   setTimeout(()=>goPage('workout'),1500);
 }
 
