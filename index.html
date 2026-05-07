@@ -361,9 +361,104 @@ nav{position:fixed;top:0;width:100%;z-index:600;height:60px;
 .profile-ex-row{display:flex;justify-content:space-between;align-items:center;padding:.6rem .8rem;background:var(--bg3);border:1px solid var(--border);}
 .profile-ex-name{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.85rem;letter-spacing:1px;}
 .profile-ex-best{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--accent);letter-spacing:2px;}
+
+/* ══ CUSTOM CURSOR ══ */
+@media(pointer:fine){body,a,button,[onclick]{cursor:none;}}
+#cur{width:10px;height:10px;background:var(--accent);border-radius:50%;position:fixed;top:0;left:0;pointer-events:none;z-index:99999;transform:translate(-50%,-50%);mix-blend-mode:difference;transition:transform .08s;}
+#cur-ring{width:32px;height:32px;border:1.5px solid rgba(232,255,0,.5);border-radius:50%;position:fixed;top:0;left:0;pointer-events:none;z-index:99998;transform:translate(-50%,-50%);transition:width .2s,height .2s,opacity .2s;}
+#cur.hov{transform:translate(-50%,-50%) scale(2.2);}
+#cur-ring.hov{width:50px;height:50px;opacity:.4;}
+@media(pointer:coarse){#cur,#cur-ring{display:none;}}
+
+/* ══ SCROLL REVEAL ══ */
+.reveal{opacity:0;transform:translateY(26px);transition:opacity .6s ease,transform .6s ease;}
+.reveal.from-left{transform:translateX(-26px);}
+.reveal.from-right{transform:translateX(26px);}
+.reveal.visible{opacity:1;transform:none;}
+.reveal-d1{transition-delay:.1s;}.reveal-d2{transition-delay:.2s;}.reveal-d3{transition-delay:.3s;}.reveal-d4{transition-delay:.4s;}
+
+/* ══ HAMBURGER ══ */
+.hamburger{display:none;flex-direction:column;gap:5px;background:none;border:none;cursor:pointer;padding:4px;z-index:10;}
+.hamburger span{display:block;width:22px;height:2px;background:var(--text);border-radius:1px;transition:all .3s;}
+.hamburger.open span:nth-child(1){transform:rotate(45deg) translate(5px,5px);}
+.hamburger.open span:nth-child(2){opacity:0;transform:scaleX(0);}
+.hamburger.open span:nth-child(3){transform:rotate(-45deg) translate(5px,-5px);}
+
+/* ══ MOBILE DRAWER ══ */
+.mobile-drawer{position:fixed;top:0;right:-100%;width:min(300px,85vw);height:100vh;background:var(--bg2);border-left:1px solid var(--border);z-index:900;transition:right .32s cubic-bezier(.4,0,.2,1);overflow-y:auto;display:flex;flex-direction:column;}
+.mobile-drawer.open{right:0;}
+.drawer-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:899;display:none;backdrop-filter:blur(4px);}
+.drawer-backdrop.open{display:block;}
+.drawer-header{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.1rem .7rem;}
+.drawer-user{display:flex;align-items:center;gap:.8rem;padding:.8rem 1.1rem .9rem;border-bottom:1px solid var(--border);cursor:pointer;transition:background .2s;}
+.drawer-user:hover{background:rgba(232,255,0,.04);}
+.drawer-links{display:flex;flex-direction:column;padding:.5rem 0;flex:1;}
+.drawer-item{padding:.82rem 1.1rem;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1rem;letter-spacing:1px;color:var(--text);cursor:pointer;transition:all .2s;border-left:3px solid transparent;}
+.drawer-item:hover{background:rgba(232,255,0,.04);color:var(--accent);border-left-color:var(--accent);padding-left:1.4rem;}
+
+/* ══ MOBILE BOTTOM TABBAR ══ */
+.mobile-tabbar{position:fixed;bottom:0;left:0;right:0;z-index:500;height:58px;background:rgba(10,12,14,.97);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-around;backdrop-filter:blur(20px);}
+.tab-item{display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;padding:.35rem 0;cursor:pointer;transition:all .2s;position:relative;}
+.tab-icon{font-size:1.15rem;line-height:1;transition:transform .2s;}
+.tab-label{font-family:'Barlow Condensed',sans-serif;font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted);transition:color .2s;}
+.tab-item.active .tab-label{color:var(--accent);}
+.tab-item.active .tab-icon{transform:scale(1.15);}
+.tab-item.active::after{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:24px;height:2px;background:var(--accent);border-radius:0 0 2px 2px;}
+.tab-center-btn{flex:0 0 58px;}
+.tab-center-inner{width:42px;height:42px;border-radius:50%;background:var(--accent);color:#000;display:flex;align-items:center;justify-content:center;font-size:.95rem;font-weight:900;font-family:'Barlow Condensed',sans-serif;box-shadow:0 0 18px rgba(232,255,0,.3);transition:transform .2s,box-shadow .2s;margin-bottom:2px;}
+.tab-center-btn:active .tab-center-inner{transform:scale(.9);box-shadow:0 0 8px rgba(232,255,0,.2);}
+
+/* ══ RESPONSIVE BREAKPOINTS ══ */
+@media(min-width:769px){
+  .mobile-tabbar{display:none!important;}
+  .hamburger{display:none!important;}
+  .mobile-drawer,.drawer-backdrop{display:none!important;}
+}
+@media(max-width:768px){
+  .nav-center{display:none;}
+  .nav-pts-wrap,.nav-rank-wrap{display:none;}
+  nav{padding:0 1rem;height:52px;}
+  .page{padding-top:52px;padding-bottom:68px;}
+  .page-inner{padding:1.2rem .85rem;}
+  .hamburger{display:flex;}
+  .workout-grid{grid-template-columns:1fr;}
+  .community-grid{grid-template-columns:1fr;}
+  .comm-sidebar{display:none;}
+  .workout-sidebar{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;}
+  .hero{padding:1.5rem 1rem 7rem;}
+  .hero-stats{left:1rem;right:1rem;gap:.8rem;bottom:1rem;}
+  .hdiv{display:none;}
+  #toast{bottom:72px;right:.8rem;left:.8rem;max-width:none;font-size:.82rem;}
+  .rank-row{grid-template-columns:38px 1fr 65px 38px;gap:.5rem;padding:.7rem .75rem;}
+  .rbdg{display:none;}
+  .profile-modal,.modal{padding:1.2rem;}
+}
+@media(max-width:540px){
+  .workout-sidebar{grid-template-columns:1fr;}
+  .ex-list{display:grid;grid-template-columns:repeat(5,1fr);gap:.3rem;}
+  .ex-btn{flex-direction:column;gap:.25rem;padding:.5rem .3rem;font-size:.68rem;text-align:center;}
+  .ex-icon{width:auto;}
+  .ex-sub{display:none;}
+  .ch-grid{grid-template-columns:1fr;}
+  .hero h1{font-size:clamp(2.8rem,14vw,5rem);}
+  .cam-metrics{gap:.6rem;}
+  .cam-ctrls{margin-left:0;width:100%;justify-content:flex-start;margin-top:.4rem;}
+  .metric-val{font-size:1.8rem;}
+  .metric-val.blue,.metric-val.white{font-size:1.3rem;}
+  .my-ch-row{flex-direction:column;align-items:flex-start;gap:.5rem;}
+  .profile-stats-grid{grid-template-columns:repeat(3,1fr);}
+}
+@media(max-width:380px){
+  .ex-list{grid-template-columns:repeat(3,1fr);}
+  .hstat-num{font-size:1.1rem;}
+}
 </style>
 </head>
 <body>
+
+<!-- 커스텀 커서 (데스크탑만) -->
+<div id="cur" aria-hidden="true"></div>
+<div id="cur-ring" aria-hidden="true"></div>
 
 <!-- ═══════════════ AUTH SCREEN ═══════════════ -->
 <div id="authScreen">
@@ -426,17 +521,64 @@ nav{position:fixed;top:0;width:100%;z-index:600;height:60px;
     <div class="nav-item" onclick="goPage('community')" id="ni-community">커뮤니티</div>
   </div>
   <div class="nav-right">
-    <div class="flex flex-col items-center">
+    <div class="flex flex-col items-center nav-pts-wrap">
       <div class="nav-pts" id="navPts">0</div>
       <div class="nav-pts-lbl">포인트</div>
     </div>
-    <div>
+    <div class="nav-rank-wrap">
       <div class="nav-username" id="navUsername">—</div>
       <div class="nav-pts-lbl" id="navRank">랭킹 —</div>
     </div>
     <div class="nav-avatar" id="navAvatar" onclick="openProfile()">😀</div>
+    <!-- 모바일 햄버거 -->
+    <button class="hamburger" id="hamburger" onclick="toggleMobileMenu()" aria-label="메뉴">
+      <span></span><span></span><span></span>
+    </button>
   </div>
 </nav>
+
+<!-- 모바일 드로어 메뉴 -->
+<div class="mobile-drawer" id="mobileDrawer">
+  <div class="drawer-header">
+    <div class="nav-logo" style="font-size:1.4rem">IRON<span>BODY</span></div>
+    <button onclick="toggleMobileMenu()" style="background:none;border:none;color:var(--muted);font-size:1.4rem;cursor:pointer;">✕</button>
+  </div>
+  <div class="drawer-user" onclick="openProfile();toggleMobileMenu()">
+    <div class="nav-avatar" id="drawerAvatar" style="width:48px;height:48px;font-size:1.4rem;">😀</div>
+    <div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1rem;letter-spacing:1px;" id="drawerName">—</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:.78rem;color:var(--accent);letter-spacing:1px;" id="drawerPts">0 P</div>
+    </div>
+  </div>
+  <div class="drawer-links">
+    <div class="drawer-item" onclick="goPage('home');toggleMobileMenu()">🏠 홈</div>
+    <div class="drawer-item" onclick="goPage('workout');toggleMobileMenu()">💪 운동하기</div>
+    <div class="drawer-item" onclick="goPage('ranking');toggleMobileMenu()">🏆 랭킹</div>
+    <div class="drawer-item" onclick="goPage('challenge');toggleMobileMenu()">🎯 챌린지</div>
+    <div class="drawer-item" onclick="goPage('community');toggleMobileMenu()">💬 커뮤니티</div>
+  </div>
+  <button class="btn btn-danger btn-sm" style="margin:1rem 1.2rem;width:calc(100% - 2.4rem);" onclick="doLogout()">로그아웃</button>
+</div>
+<div class="drawer-backdrop" id="drawerBackdrop" onclick="toggleMobileMenu()"></div>
+
+<!-- 모바일 하단 탭바 -->
+<div class="mobile-tabbar hidden" id="mobileTabbar">
+  <div class="tab-item active" id="tab-home" onclick="goPage('home')">
+    <div class="tab-icon">🏠</div><div class="tab-label">홈</div>
+  </div>
+  <div class="tab-item" id="tab-workout" onclick="goPage('workout')">
+    <div class="tab-icon">💪</div><div class="tab-label">운동</div>
+  </div>
+  <div class="tab-item tab-center-btn" onclick="goPage('workout')">
+    <div class="tab-center-inner">▶</div>
+  </div>
+  <div class="tab-item" id="tab-ranking" onclick="goPage('ranking')">
+    <div class="tab-icon">🏆</div><div class="tab-label">랭킹</div>
+  </div>
+  <div class="tab-item" id="tab-community" onclick="goPage('community')">
+    <div class="tab-icon">💬</div><div class="tab-label">커뮤니티</div>
+  </div>
+</div>
 
 <!-- ═══════════════ PAGES ═══════════════ -->
 
@@ -446,15 +588,15 @@ nav{position:fixed;top:0;width:100%;z-index:600;height:60px;
     <div class="hero-bg"></div>
     <div class="hero-grid"></div>
     <div class="hero-content">
-      <div class="hero-badge">AI 카운팅 · 실시간 랭킹 · 챌린지 보상</div>
-      <h1>운동을<br><span class="hl">게임으로</span><br><span class="ol">만들다</span></h1>
-      <p class="hero-sub">카메라 하나로 AI가 푸쉬업·턱걸이·스쿼트·싯업을 실시간 감지합니다. 전국 랭킹에서 경쟁하고, 챌린지를 완료해 보상을 획득하세요.</p>
-      <div class="hero-btns">
+      <div class="hero-badge reveal">AI 카운팅 · 실시간 랭킹 · 챌린지 보상</div>
+      <h1 class="reveal reveal-d1">운동을<br><span class="hl">게임으로</span><br><span class="ol">만들다</span></h1>
+      <p class="hero-sub reveal reveal-d2">카메라 하나로 AI가 푸쉬업·턱걸이·스쿼트·싯업을 실시간 감지합니다. 전국 랭킹에서 경쟁하고, 챌린지를 완료해 보상을 획득하세요.</p>
+      <div class="hero-btns reveal reveal-d3">
         <button class="btn btn-accent" onclick="goPage('workout')">지금 운동 시작</button>
         <button class="btn btn-outline" onclick="goPage('ranking')">랭킹 보기</button>
       </div>
     </div>
-    <div class="hero-stats">
+    <div class="hero-stats reveal reveal-d4">
       <div class="hstat"><div class="hstat-num" id="hs1">0</div><div class="hstat-lbl">활성 유저</div></div>
       <div class="hdiv"></div>
       <div class="hstat"><div class="hstat-num" id="hs2">0</div><div class="hstat-lbl">총 운동 횟수</div></div>
@@ -723,6 +865,8 @@ function doLogin(){
   const pw = document.getElementById('loginPw').value;
   const errEl = document.getElementById('loginErr');
   if(!email||!pw){errEl.textContent='이메일과 비밀번호를 입력하세요.';return;}
+  // 항상 최신 localStorage 데이터로 다시 읽기 (핵심 버그 수정)
+  users = JSON.parse(localStorage.getItem('ib_users')||'[]');
   const user = users.find(u=>u.email===email&&u.pw===pw);
   if(!user){errEl.textContent='이메일 또는 비밀번호가 올바르지 않습니다.';return;}
   loginSuccess(user);
@@ -770,6 +914,8 @@ function loginSuccess(user){
   localStorage.setItem('ib_current', JSON.stringify(user));
   document.getElementById('authScreen').classList.add('hidden');
   document.getElementById('mainNav').classList.remove('hidden');
+  // 모바일이면 탭바 표시
+  if(window.innerWidth<=768) document.getElementById('mobileTabbar').classList.remove('hidden');
   updateNavUI();
   goPage('home');
   animateHomeStats();
@@ -780,7 +926,9 @@ function doLogout(){
   currentUser = null;
   localStorage.removeItem('ib_current');
   closeProfile();
+  closeMobileMenu();
   document.getElementById('mainNav').classList.add('hidden');
+  document.getElementById('mobileTabbar').classList.add('hidden');
   document.getElementById('authScreen').classList.remove('hidden');
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   stopCam();
@@ -803,7 +951,13 @@ function updateNavUI(){
   document.getElementById('navUsername').textContent = currentUser.name;
   document.getElementById('navPts').textContent = currentUser.points.toLocaleString();
   document.getElementById('navAvatar').textContent = currentUser.avatar;
-  // Simple rank calc
+  // 드로어 유저 정보 업데이트
+  const da=document.getElementById('drawerAvatar');
+  const dn=document.getElementById('drawerName');
+  const dp=document.getElementById('drawerPts');
+  if(da) da.textContent=currentUser.avatar;
+  if(dn) dn.textContent=currentUser.name;
+  if(dp) dp.textContent=(currentUser.points||0).toLocaleString()+' P';
   const all = users.filter(u=>u.id!==999||u===currentUser);
   all.sort((a,b)=>b.totalReps-a.totalReps);
   const rank = all.findIndex(u=>u.id===currentUser.id)+1;
@@ -817,8 +971,18 @@ function goPage(name){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
-  const ni = document.getElementById('ni-'+name);
+  const ni=document.getElementById('ni-'+name);
   if(ni) ni.classList.add('active');
+  // 모바일 탭바 active 동기화
+  document.querySelectorAll('.tab-item').forEach(t=>t.classList.remove('active'));
+  const tab=document.getElementById('tab-'+name);
+  if(tab) tab.classList.add('active');
+  // 드로어 닫기
+  closeMobileMenu();
+  // 페이지 상단으로
+  window.scrollTo(0,0);
+  // 페이지 진입 시 reveal 재초기화
+  setTimeout(initReveal, 50);
   if(name==='ranking') renderRanking();
   if(name==='challenge') renderChallenges();
   if(name==='community') renderCommunity();
@@ -852,45 +1016,116 @@ let angleSmooth=[];
 let timerSec=0, timerInt=null;
 let sessionSets=[];
 
-// Exercise configs: landmarks, down/up thresholds, flip state logic
+// 안정 프레임 카운터 (오카운팅 방지용)
+let stableDownFrames=0;
+let stableUpFrames=0;
+const STABLE_REQUIRED=5; // 5프레임 연속 유지해야 상태 전환
+
+// 최소 가시성 임계값 — 이 이하이면 감지 자체를 무시
+const MIN_VISIBILITY=0.55;
+
+// ─────────────────────────────────────────────────────────────
+// 운동별 검증 조건 설명
+//
+// joints      : 각도 계산에 쓸 관절 인덱스 [A, B(꺾이는 곳), C]
+//               양쪽(좌/우) 두 세트를 배열로 넣으면 평균 계산
+// down        : "내려간" 상태로 인정하는 각도 임계값
+// up          : "올라온" 상태로 인정하는 각도 임계값
+// minAngleDiff: 한 동작 내에서 각도가 최소 이만큼 변해야 카운트
+//               → 손만 살짝 흔드는 등 작은 움직임 차단
+// bodyCheck   : 추가 신체 조건 함수 (자세 검증)
+//               lm(랜드마크 배열)을 받아 true/false 반환
+//               false면 카운트 불가 + 피드백 메시지 표시
+// bodyWarn    : bodyCheck 실패 시 표시할 경고 메시지
+// invertCount : true이면 down/up 기준 반전 (턱걸이, 싯업)
+// ─────────────────────────────────────────────────────────────
 const EX_CONFIG = {
   pushup: {
-    joints:[[11,13,15],[12,14,16]], // left + right arm
-    down:90, up:155,
-    downFb: '내려갔습니다 ✓ 이제 올라오세요',
-    upFb: '완벽! 푸쉬업 {{n}}회 🔥',
-    formTips:['더 내려가세요 ↓','팔을 더 펴세요 ↑','좋은 자세입니다!'],
+    joints:[[11,13,15],[12,14,16]],
+    down:85, up:155,
+    minAngleDiff:50,  // 최소 50° 변화 필요
+    // 푸쉬업 검증: 어깨가 손목보다 낮아야 함(엎드린 자세)
+    // 어깨 y좌표 > 손목 y좌표 (화면에서 아래 = y값 큼)
+    bodyCheck:(lm)=>{
+      const shoulderY=(lm[11].y+lm[12].y)/2;
+      const wristY=(lm[15].y+lm[16].y)/2;
+      const hipY=(lm[23].y+lm[24].y)/2;
+      // 어깨가 엉덩이보다 낮거나 비슷한 위치 (엎드린 자세)
+      return Math.abs(shoulderY-hipY)<0.25 && (lm[11].visibility||0)>MIN_VISIBILITY && (lm[15].visibility||0)>MIN_VISIBILITY;
+    },
+    bodyWarn:'푸쉬업 자세(엎드린 자세)로 카메라 앞에 위치하세요',
+    downFb:'내려갔습니다 ✓ 이제 올라오세요',
+    upFb:'완벽! 푸쉬업 {{n}}회 🔥',
+    formTips:['더 내려가세요 ↓ (팔꿈치 90° 이하)','팔을 완전히 펴세요 ↑','좋은 자세입니다!'],
     label:'PUSHUP'
   },
   pullup: {
     joints:[[11,13,15],[12,14,16]],
-    down:155, up:60,  // inverted: arms straight=down, bent=up
-    downFb: '내려갔습니다 (팔 펴기) ✓',
-    upFb: '완벽! 턱걸이 {{n}}회 🔥',
+    down:150, up:65,
+    minAngleDiff:60,
+    // 턱걸이 검증: 손목이 어깨보다 위에 있어야 함
+    bodyCheck:(lm)=>{
+      const wristY=(lm[15].y+lm[16].y)/2;
+      const shoulderY=(lm[11].y+lm[12].y)/2;
+      // 화면 y는 위가 0, 아래가 1 — 손목이 위(y 작음)에 있어야 함
+      return wristY < shoulderY-0.05 && (lm[11].visibility||0)>MIN_VISIBILITY;
+    },
+    bodyWarn:'철봉을 잡고 매달린 자세에서 시작하세요',
+    downFb:'완전히 내려왔습니다 ✓ 이제 올라가세요',
+    upFb:'완벽! 턱걸이 {{n}}회 🔥',
     formTips:['더 올라오세요 ↑','완전히 내려오세요 ↓','좋은 자세!'],
     label:'PULLUP', invertCount:true
   },
   squat: {
-    joints:[[23,25,27],[24,26,28]], // hip, knee, ankle
-    down:90, up:160,
-    downFb: '스쿼트 자세 ✓ 이제 올라오세요',
-    upFb: '완벽! 스쿼트 {{n}}회 🔥',
-    formTips:['더 내려가세요 ↓','무릎이 발끝 방향으로','좋은 자세!'],
+    joints:[[23,25,27],[24,26,28]],
+    down:95, up:160,
+    minAngleDiff:50,
+    // 스쿼트 검증: 엉덩이와 발목이 모두 보여야 하고
+    // 어깨가 엉덩이보다 위에 있어야 함 (서있거나 앉는 자세)
+    bodyCheck:(lm)=>{
+      const shoulderY=(lm[11].y+lm[12].y)/2;
+      const hipY=(lm[23].y+lm[24].y)/2;
+      return shoulderY < hipY && (lm[23].visibility||0)>MIN_VISIBILITY && (lm[27].visibility||0)>MIN_VISIBILITY;
+    },
+    bodyWarn:'서있는 자세에서 시작하세요. 전신이 보여야 합니다',
+    downFb:'앉았습니다 ✓ 이제 올라오세요',
+    upFb:'완벽! 스쿼트 {{n}}회 🔥',
+    formTips:['더 내려가세요 ↓ (허벅지 평행)','무릎이 발끝 방향으로','좋은 자세!'],
     label:'SQUAT'
   },
   situp: {
-    joints:[[11,23,25],[12,24,26]], // shoulder, hip, knee
-    down:55, up:130,
-    downFb: '올라갔습니다 ✓ 이제 내려오세요',
-    upFb: '완벽! 싯업 {{n}}회 🔥',
+    joints:[[11,23,25],[12,24,26]],
+    down:60, up:125,
+    minAngleDiff:45,
+    // 싯업 검증: 누운 자세 — 어깨와 엉덩이 y값이 비슷해야 함
+    bodyCheck:(lm)=>{
+      const shoulderY=(lm[11].y+lm[12].y)/2;
+      const hipY=(lm[23].y+lm[24].y)/2;
+      const kneeY=(lm[25].y+lm[26].y)/2;
+      // 엉덩이와 무릎이 보이고 어깨-엉덩이 높이차가 작음(누운 자세)
+      return Math.abs(shoulderY-hipY)<0.35 && kneeY>(hipY-0.05) && (lm[23].visibility||0)>MIN_VISIBILITY;
+    },
+    bodyWarn:'바닥에 누운 자세에서 시작하세요',
+    downFb:'내려갔습니다 ✓ 이제 올라오세요',
+    upFb:'완벽! 싯업 {{n}}회 🔥',
     formTips:['더 올라오세요 ↑','천천히 내려오세요 ↓','코어에 힘주세요!'],
     label:'SITUP', invertCount:true
   },
   dips: {
     joints:[[11,13,15],[12,14,16]],
-    down:75, up:155,
-    downFb: '내려갔습니다 ✓ 이제 올라오세요',
-    upFb: '완벽! 딥스 {{n}}회 🔥',
+    down:80, up:150,
+    minAngleDiff:55,
+    // 딥스 검증: 손목이 어깨 높이 근처(평행봉 자세)
+    bodyCheck:(lm)=>{
+      const shoulderY=(lm[11].y+lm[12].y)/2;
+      const wristY=(lm[15].y+lm[16].y)/2;
+      const hipY=(lm[23].y+lm[24].y)/2;
+      // 어깨가 엉덩이보다 위, 손목이 어깨 근처
+      return shoulderY<hipY && Math.abs(wristY-shoulderY)<0.3 && (lm[11].visibility||0)>MIN_VISIBILITY;
+    },
+    bodyWarn:'평행봉에 올라간 자세에서 시작하세요',
+    downFb:'내려갔습니다 ✓ 이제 올라오세요',
+    upFb:'완벽! 딥스 {{n}}회 🔥',
     formTips:['더 내려가세요 ↓','팔을 완전히 펴세요 ↑','좋은 자세!'],
     label:'DIPS'
   }
@@ -905,11 +1140,33 @@ function calcAngle(A,B,C){
   return Math.round(Math.acos(Math.max(-1,Math.min(1,dot/mag)))*180/Math.PI);
 }
 
+// 양쪽 관절 평균 각도 계산 (가시성 가중치 적용)
+function calcBestAngle(lm, joints){
+  let weightedSum=0, totalWeight=0, bestJointB=null, bestWeight=0;
+  for(const [ai,bi,ci] of joints){
+    const va=lm[ai].visibility||0, vb=lm[bi].visibility||0, vc=lm[ci].visibility||0;
+    const weight=(va+vb+vc)/3;
+    if(weight<MIN_VISIBILITY) continue; // 안보이는 쪽 무시
+    const angle=calcAngle({x:lm[ai].x,y:lm[ai].y},{x:lm[bi].x,y:lm[bi].y},{x:lm[ci].x,y:lm[ci].y});
+    weightedSum+=angle*weight;
+    totalWeight+=weight;
+    if(weight>bestWeight){bestWeight=weight;bestJointB={x:lm[bi].x,y:lm[bi].y,angle};}
+  }
+  return {
+    angle: totalWeight>0 ? Math.round(weightedSum/totalWeight) : null,
+    visibility: totalWeight/joints.length,
+    jointB: bestJointB
+  };
+}
+
 function getSmoothedAngle(raw){
   angleSmooth.push(raw);
-  if(angleSmooth.length>6) angleSmooth.shift();
+  if(angleSmooth.length>10) angleSmooth.shift(); // 10프레임으로 늘림
   return Math.round(angleSmooth.reduce((a,b)=>a+b,0)/angleSmooth.length);
 }
+
+// 동작 중 최대/최소 각도 추적 (minAngleDiff 검증용)
+let sessionMinAngle=999, sessionMaxAngle=0;
 
 function onPoseResults(results){
   const canvas=document.getElementById('outputCanvas');
@@ -927,60 +1184,121 @@ function onPoseResults(results){
   drawSkeleton(ctx,lm,canvas.width,canvas.height);
 
   const cfg=EX_CONFIG[currentEx];
-  // Use best visible joint set
-  let bestAngle=null, bestVis=0;
-  for(const [ai,bi,ci] of cfg.joints){
-    const vis=(lm[ai].visibility||0)+(lm[bi].visibility||0)+(lm[ci].visibility||0);
-    if(vis>bestVis){
-      bestVis=vis;
-      bestAngle=calcAngle({x:lm[ai].x,y:lm[ai].y},{x:lm[bi].x,y:lm[bi].y},{x:lm[ci].x,y:lm[ci].y});
-      // Draw angle at joint B
-      const jx=lm[bi].x*canvas.width, jy=lm[bi].y*canvas.height;
-      ctx.save();
-      ctx.font='bold 20px Bebas Neue';
-      ctx.fillStyle='#e8ff00';
-      ctx.shadowBlur=12;ctx.shadowColor='#e8ff00';
-      ctx.fillText(bestAngle+'°', jx+12, jy-8);
-      ctx.restore();
-    }
+  const {angle:rawAngle, visibility, jointB}=calcBestAngle(lm, cfg.joints);
+
+  if(rawAngle===null){
+    setFb('관절이 잘 보이지 않습니다. 카메라 위치를 조정하세요.','warn');
+    return;
   }
 
-  const angle=getSmoothedAngle(bestAngle||90);
-  const acc=Math.round(bestVis/3*100);
+  // 각도 표시
+  if(jointB){
+    const jx=jointB.x*canvas.width, jy=jointB.y*canvas.height;
+    ctx.save();
+    ctx.font='bold 20px Bebas Neue';
+    ctx.fillStyle='#e8ff00';
+    ctx.shadowBlur=12;ctx.shadowColor='#e8ff00';
+    ctx.fillText(rawAngle+'°', jx+12, jy-8);
+    ctx.restore();
+  }
+
+  const angle=getSmoothedAngle(rawAngle);
+  const acc=Math.round(visibility*100);
   document.getElementById('hudAccuracy').textContent='정확도: '+acc+'%';
 
-  // Show angle overlay
   const ao=document.getElementById('angleOverlay');
   if(isRunning){ao.textContent=angle+'°';ao.style.opacity='.65';}
 
-  if(isRunning) processRep(angle, cfg, acc);
+  // ── 신체 자세 검증 ──
+  if(isRunning){
+    const poseOk = cfg.bodyCheck(lm);
+    if(!poseOk){
+      setFb('⚠️ '+cfg.bodyWarn,'warn');
+      // 잘못된 자세에서 상태 리셋 (오카운팅 방지)
+      stableDownFrames=0; stableUpFrames=0;
+      repState='up';
+      sessionMinAngle=999; sessionMaxAngle=0;
+      return;
+    }
+    processRep(angle, cfg, acc);
+  }
 }
 
 function processRep(angle, cfg, acc){
-  const invertCount = cfg.invertCount;
+  const invertCount=cfg.invertCount;
   let counted=false;
 
+  // 동작 범위 추적
+  if(angle<sessionMinAngle) sessionMinAngle=angle;
+  if(angle>sessionMaxAngle) sessionMaxAngle=angle;
+  const angleDiff=sessionMaxAngle-sessionMinAngle;
+
   if(!invertCount){
-    // Normal: down when angle < cfg.down, up when angle > cfg.up
-    if(angle < cfg.down && repState==='up'){
-      repState='down';
-      setFb(cfg.downFb,'');
-    } else if(angle > cfg.up && repState==='down'){
-      repState='up';
-      counted=true;
-    } else if(repState==='up'){
-      const pct=Math.max(0,Math.min(100,((angle-cfg.up)/(180-cfg.up))*100));
-      document.getElementById('repProgressFill').style.width=(100-pct)+'%';
-      if(angle<cfg.up+30) setFb(cfg.formTips[0],'');
+    // 내려가는 단계
+    if(angle<cfg.down && repState==='up'){
+      stableDownFrames++;
+      if(stableDownFrames>=STABLE_REQUIRED){
+        repState='down';
+        stableDownFrames=0;
+        sessionMinAngle=angle; sessionMaxAngle=angle; // 범위 리셋
+        setFb(cfg.downFb,'');
+      } else {
+        setFb('조금 더 내려가세요... ('+stableDownFrames+'/'+STABLE_REQUIRED+')','');
+      }
+    } else if(angle>=cfg.down){
+      stableDownFrames=0;
+    }
+    // 올라오는 단계
+    if(angle>cfg.up && repState==='down'){
+      stableUpFrames++;
+      if(stableUpFrames>=STABLE_REQUIRED){
+        // 핵심: 각도 변화량이 충분해야만 카운트
+        if(angleDiff>=cfg.minAngleDiff){
+          counted=true;
+        } else {
+          setFb('동작이 너무 작습니다! 더 크게 움직이세요 (현재 변화량: '+angleDiff+'°)','warn');
+        }
+        repState='up';
+        stableUpFrames=0;
+        stableDownFrames=0;
+        sessionMinAngle=999; sessionMaxAngle=0;
+      }
+    } else if(angle<=cfg.up){
+      stableUpFrames=0;
+    }
+    // 진행률 바
+    if(repState==='up'){
+      const pct=Math.max(0,Math.min(100,(1-(angle/180))*100));
+      document.getElementById('repProgressFill').style.width=pct+'%';
     }
   } else {
-    // Inverted (pullup/situp)
-    if(angle > cfg.down && repState==='up'){
-      repState='down';
-      setFb(cfg.downFb,'');
-    } else if(angle < cfg.up && repState==='down'){
-      repState='up';
-      counted=true;
+    // 반전 운동 (턱걸이, 싯업)
+    if(angle>cfg.down && repState==='up'){
+      stableDownFrames++;
+      if(stableDownFrames>=STABLE_REQUIRED){
+        repState='down';
+        stableDownFrames=0;
+        sessionMinAngle=angle; sessionMaxAngle=angle;
+        setFb(cfg.downFb,'');
+      }
+    } else if(angle<=cfg.down){
+      stableDownFrames=0;
+    }
+    if(angle<cfg.up && repState==='down'){
+      stableUpFrames++;
+      if(stableUpFrames>=STABLE_REQUIRED){
+        if(angleDiff>=cfg.minAngleDiff){
+          counted=true;
+        } else {
+          setFb('동작이 너무 작습니다! 더 크게 움직이세요 (변화량: '+angleDiff+'°)','warn');
+        }
+        repState='up';
+        stableUpFrames=0;
+        stableDownFrames=0;
+        sessionMinAngle=999; sessionMaxAngle=0;
+      }
+    } else if(angle>=cfg.up){
+      stableUpFrames=0;
     }
   }
 
@@ -993,7 +1311,6 @@ function processRep(angle, cfg, acc){
     flashRep();
     const fb=cfg.upFb.replace('{{n}}',repCount);
     setFb(fb,'good');
-    // Update user total
     if(currentUser){
       currentUser.totalReps=totalReps;
       if(repCount>(currentUser.bests[currentEx]||0)) currentUser.bests[currentEx]=repCount;
@@ -1089,6 +1406,8 @@ function stopCam(){
 
 function resetReps(){
   repCount=0; repState='up'; angleSmooth=[];
+  stableDownFrames=0; stableUpFrames=0;
+  sessionMinAngle=999; sessionMaxAngle=0;
   document.getElementById('mRep').textContent='0';
   document.getElementById('repProgressFill').style.width='0%';
   setFb('초기화되었습니다.','');
@@ -1131,6 +1450,8 @@ function renderSetsLog(){
 function selEx(name, btn){
   currentEx=name;
   repState='up'; angleSmooth=[];
+  stableDownFrames=0; stableUpFrames=0;
+  sessionMinAngle=999; sessionMaxAngle=0;
   document.querySelectorAll('.ex-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('hudExercise').textContent=EX_CONFIG[name].label+' MODE';
@@ -1226,13 +1547,97 @@ function switchExFilter(el,type){
 // ═══════════════════════════════════════════
 // CHALLENGES
 // ═══════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// 📝 챌린지 수정 가이드
+//
+// 각 챌린지 항목 설명:
+//   id       : 고유 번호 (0부터 순서대로, 절대 중복 안 됨)
+//   tag      : 배지 색상 → 'hot'(빨강) | 'new'(파랑) | 'wk'(노랑)
+//   tagLabel : 배지에 표시될 텍스트 (이모지 포함 가능)
+//   name     : 챌린지 제목
+//   desc     : 챌린지 설명
+//   days     : 남은 기간 (표시용 텍스트)
+//   method   : 인증 방법 텍스트
+//   reward   : 보상 텍스트
+//   ppl      : 참여 인원 (표시용 텍스트)
+//   prog     : 진행률 바 % (0~100)
+//   target   : 달성 목표 횟수 (진행도 계산에 사용)
+//   ex       : 연동 운동 종목 → 'pushup'|'pullup'|'squat'|'situp'|'dips'|'all'
+//
+// 챌린지 추가: 아래 배열에 새 항목을 { } 로 추가하면 됩니다.
+// 챌린지 삭제: 해당 줄을 지우면 됩니다.
+// ═══════════════════════════════════════════════════════════════
 const CHALLENGES=[
-  {id:0,tag:'hot',tagLabel:'🔥 HOT',name:'푸쉬업 100 스피드런',desc:'가장 빠르게 푸쉬업 100개를 완료하라. AI가 모든 동작을 실시간 검증한다.',days:'3일',method:'AI 카운팅',reward:'🎁 5,000P + 푸쉬업 바',ppl:'2,341',prog:65,target:100,ex:'pushup'},
-  {id:1,tag:'wk',tagLabel:'⭐ WEEKLY',name:'30일 연속 운동',desc:'30일 동안 매일 운동 기록을 제출하라. 하루라도 빠지면 실격.',days:'17일',method:'기록 제출',reward:'🎁 15,000P',ppl:'891',prog:40,target:30,ex:'all'},
-  {id:2,tag:'new',tagLabel:'✨ NEW',name:'딥스 MAX 기록',desc:'딥스 최대 횟수 1회 측정. 정자세로만 카운팅. 이번 주 1등을 노려라.',days:'6일',method:'AI 카운팅',reward:'🎁 3,000P',ppl:'123',prog:15,target:30,ex:'dips'},
-  {id:3,tag:'hot',tagLabel:'🔥 HOT',name:'스쿼트 200챌린지',desc:'총 200개 스쿼트를 가장 빠른 시간 내에 완료하라.',days:'5일',method:'AI 카운팅',reward:'🎁 4,000P + 보조밴드',ppl:'1,020',prog:50,target:200,ex:'squat'},
-  {id:4,tag:'wk',tagLabel:'⭐ WEEKLY',name:'턱걸이 10개 달성',desc:'턱걸이 10개를 정자세로 완료하라. 초보자도 도전 가능!',days:'4일',method:'AI 카운팅',reward:'🎁 2,500P',ppl:'456',prog:30,target:10,ex:'pullup'},
-  {id:5,tag:'new',tagLabel:'✨ NEW',name:'싯업 50개 챌린지',desc:'싯업 50개를 하루에 완료. 매일 기록을 제출하면 추가 포인트.',days:'7일',method:'AI 카운팅',reward:'🎁 3,500P',ppl:'78',prog:10,target:50,ex:'situp'},
+  // ── 챌린지 1 ──────────────────────────────────────────────
+  {
+    id:0,
+    tag:'hot', tagLabel:'🔥 HOT',
+    name:'푸쉬업 100 스피드런',
+    desc:'가장 빠르게 푸쉬업 100개를 완료하라. AI가 모든 동작을 실시간 검증한다.',
+    days:'3일', method:'AI 카운팅',
+    reward:'🎁 5,000P + 푸쉬업 바',
+    ppl:'2,341', prog:65, target:100, ex:'pushup'
+  },
+  // ── 챌린지 2 ──────────────────────────────────────────────
+  {
+    id:1,
+    tag:'wk', tagLabel:'⭐ WEEKLY',
+    name:'30일 연속 운동',
+    desc:'30일 동안 매일 운동 기록을 제출하라. 하루라도 빠지면 실격.',
+    days:'17일', method:'기록 제출',
+    reward:'🎁 15,000P',
+    ppl:'891', prog:40, target:30, ex:'all'
+  },
+  // ── 챌린지 3 ──────────────────────────────────────────────
+  {
+    id:2,
+    tag:'new', tagLabel:'✨ NEW',
+    name:'딥스 MAX 기록',
+    desc:'딥스 최대 횟수 1회 측정. 정자세로만 카운팅. 이번 주 1등을 노려라.',
+    days:'6일', method:'AI 카운팅',
+    reward:'🎁 3,000P',
+    ppl:'123', prog:15, target:30, ex:'dips'
+  },
+  // ── 챌린지 4 ──────────────────────────────────────────────
+  {
+    id:3,
+    tag:'hot', tagLabel:'🔥 HOT',
+    name:'스쿼트 200챌린지',
+    desc:'총 200개 스쿼트를 가장 빠른 시간 내에 완료하라.',
+    days:'5일', method:'AI 카운팅',
+    reward:'🎁 4,000P + 보조밴드',
+    ppl:'1,020', prog:50, target:200, ex:'squat'
+  },
+  // ── 챌린지 5 ──────────────────────────────────────────────
+  {
+    id:4,
+    tag:'wk', tagLabel:'⭐ WEEKLY',
+    name:'턱걸이 10개 달성',
+    desc:'턱걸이 10개를 정자세로 완료하라. 초보자도 도전 가능!',
+    days:'4일', method:'AI 카운팅',
+    reward:'🎁 2,500P',
+    ppl:'456', prog:30, target:10, ex:'pullup'
+  },
+  // ── 챌린지 6 ──────────────────────────────────────────────
+  {
+    id:5,
+    tag:'new', tagLabel:'✨ NEW',
+    name:'싯업 50개 챌린지',
+    desc:'싯업 50개를 하루에 완료. 매일 기록을 제출하면 추가 포인트.',
+    days:'7일', method:'AI 카운팅',
+    reward:'🎁 3,500P',
+    ppl:'78', prog:10, target:50, ex:'situp'
+  },
+  // ── 여기 아래에 새 챌린지 추가 가능 ─────────────────────
+  // {
+  //   id:6,
+  //   tag:'new', tagLabel:'✨ NEW',
+  //   name:'새 챌린지 이름',
+  //   desc:'챌린지 설명을 입력하세요.',
+  //   days:'7일', method:'AI 카운팅',
+  //   reward:'🎁 2,000P',
+  //   ppl:'0', prog:0, target:50, ex:'pushup'
+  // },
 ];
 
 function renderChallenges(){
@@ -1480,6 +1885,64 @@ function openProfile(){
 function closeProfile(){document.getElementById('profileModal').classList.remove('open');}
 
 // ═══════════════════════════════════════════
+// CUSTOM CURSOR
+// ═══════════════════════════════════════════
+(function initCursor(){
+  if(window.matchMedia('(pointer:coarse)').matches) return;
+  const dot=document.getElementById('cur');
+  const ring=document.getElementById('cur-ring');
+  if(!dot||!ring) return;
+  let mx=0,my=0,rx=0,ry=0,raf;
+  document.addEventListener('mousemove',e=>{
+    mx=e.clientX; my=e.clientY;
+    dot.style.left=mx+'px'; dot.style.top=my+'px';
+  });
+  function animRing(){
+    rx+=(mx-rx)*.13; ry+=(my-ry)*.13;
+    ring.style.left=rx+'px'; ring.style.top=ry+'px';
+    raf=requestAnimationFrame(animRing);
+  }
+  animRing();
+  document.addEventListener('mouseover',e=>{
+    const t=e.target.closest('button,a,[onclick],[role="button"],.ex-btn,.ch-card,.rank-row,.tab-item,.drawer-item');
+    if(t){dot.classList.add('hov');ring.classList.add('hov');}
+    else{dot.classList.remove('hov');ring.classList.remove('hov');}
+  });
+})();
+
+// ═══════════════════════════════════════════
+// SCROLL REVEAL
+// ═══════════════════════════════════════════
+function initReveal(){
+  const els=document.querySelectorAll('.reveal');
+  if(!els.length) return;
+  const obs=new IntersectionObserver(entries=>{
+    entries.forEach(e=>{if(e.isIntersecting) e.target.classList.add('visible');});
+  },{threshold:.12,rootMargin:'0px 0px -40px 0px'});
+  els.forEach(el=>obs.observe(el));
+}
+
+// ═══════════════════════════════════════════
+// MOBILE DRAWER
+// ═══════════════════════════════════════════
+function toggleMobileMenu(){
+  const drawer=document.getElementById('mobileDrawer');
+  const backdrop=document.getElementById('drawerBackdrop');
+  const ham=document.getElementById('hamburger');
+  const open=drawer.classList.toggle('open');
+  backdrop.classList.toggle('open',open);
+  ham.classList.toggle('open',open);
+  document.body.style.overflow=open?'hidden':'';
+}
+function closeMobileMenu(){
+  document.getElementById('mobileDrawer').classList.remove('open');
+  document.getElementById('drawerBackdrop').classList.remove('open');
+  const ham=document.getElementById('hamburger');
+  if(ham) ham.classList.remove('open');
+  document.body.style.overflow='';
+}
+
+// ═══════════════════════════════════════════
 // TOAST
 // ═══════════════════════════════════════════
 let toastTimer=null;
@@ -1494,10 +1957,12 @@ function showToast(msg){
 // INIT
 // ═══════════════════════════════════════════
 (function init(){
-  // Auto login if session exists
+  initReveal();
   if(currentUser){
     document.getElementById('authScreen').classList.add('hidden');
     document.getElementById('mainNav').classList.remove('hidden');
+    // 모바일 탭바 표시
+    if(window.innerWidth<=768) document.getElementById('mobileTabbar').classList.remove('hidden');
     updateNavUI();
     goPage('home');
     animateHomeStats();
