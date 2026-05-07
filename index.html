@@ -16,6 +16,19 @@ import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, addDoc, getDo
   query, orderBy, limit, onSnapshot, serverTimestamp, increment }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
+// ── 안전한 toast 헬퍼 (일반 script 로드 전 호출 대비) ──
+function _toast(msg){
+  if(typeof window.showToast === 'function'){
+    _toast(msg);
+  } else {
+    // 일반 script 아직 안 로드된 경우 대기
+    setTimeout(()=>{ if(typeof window.showToast==='function') _toast(msg); }, 500);
+  }
+}
+function _reveal(){
+  if(typeof window.initReveal === 'function') window.initReveal();
+}
+
 // ═══════════════════════════════════════
 // FIREBASE 초기화
 // ═══════════════════════════════════════
@@ -167,10 +180,10 @@ onAuthStateChanged(auth, async (fbUser)=>{
       updateNavUI();
       goPage('home');
       setTimeout(animateHomeStats,300);
-      window.showToast(`환영합니다, ${window.currentUser.name}님! 💪`);
+      _toast(`환영합니다, ${window.currentUser.name}님! 💪`);
     } catch(e){
       hideLoading();
-      window.showToast('데이터 로드 실패: '+e.message);
+      _toast('데이터 로드 실패: '+e.message);
     }
   } else {
     hideLoading();
@@ -394,7 +407,7 @@ window.renderPosts = async function(){
         </div>
       </div>`;
     }).join('');
-    window.initReveal && window.initReveal();
+    _reveal();
   } catch(e){
     feed.innerHTML=`<div style="text-align:center;padding:2rem;color:var(--accent2);font-family:'Barlow Condensed',sans-serif;">게시물을 불러오지 못했습니다</div>`;
   }
@@ -415,7 +428,7 @@ window.renderRecordCard = function(record){
 };
 
 window.toggleLike = async function(postId, pi){
-  if(!window.currentUid){ window.showToast('로그인이 필요합니다'); return; }
+  if(!window.currentUid){ _toast('로그인이 필요합니다'); return; }
   const postRef = doc(db,'posts',postId);
   const p = window.posts[pi];
   const liked = p.likedBy&&p.likedBy[window.currentUid];
@@ -425,7 +438,7 @@ window.toggleLike = async function(postId, pi){
       likeCount: increment(liked?-1:1)
     });
     await renderPosts();
-  } catch(e){ window.showToast('좋아요 처리 실패'); }
+  } catch(e){ _toast('좋아요 처리 실패'); }
 };
 
 window.toggleComments = function(id){
@@ -451,21 +464,21 @@ window.addComment = async function(postId, pi){
     inp.value='';
     await renderPosts();
     setTimeout(()=>{ const el=document.getElementById('cmts-'+postId); if(el) el.classList.add('open'); },50);
-  } catch(e){ window.showToast('댓글 등록 실패'); }
+  } catch(e){ _toast('댓글 등록 실패'); }
 };
 
 window.deletePost = async function(postId){
   if(!confirm('이 게시물을 삭제하시겠습니까?')) return;
   try{
     await deleteDoc(doc(db,'posts',postId));
-    window.showToast('게시물이 삭제됐습니다');
+    _toast('게시물이 삭제됐습니다');
     await renderPosts();
-  } catch(e){ window.showToast('삭제 실패'); }
+  } catch(e){ _toast('삭제 실패'); }
 };
 
 window.submitPost = async function(){
   const body=document.getElementById('postContent').value.trim();
-  if(!body){ window.showToast('내용을 입력해주세요'); return; }
+  if(!body){ _toast('내용을 입력해주세요'); return; }
   showLoading('게시 중...');
   try{
     await addDoc(collection(db,'posts'),{
@@ -493,14 +506,14 @@ window.submitPost = async function(){
     document.getElementById('recordPanel').style.display='none';
     hideLoading();
     await renderPosts();
-    window.showToast('게시물이 등록됐습니다! +50P 🎉');
+    _toast('게시물이 등록됐습니다! +50P 🎉');
   } catch(e){
     hideLoading();
-    window.showToast('게시 실패: '+e.message);
+    _toast('게시 실패: '+e.message);
   }
 };
 
-window.copyShareLink = function(author){ window.showToast(`${author}님의 게시물 링크가 복사되었습니다!`); };
+window.copyShareLink = function(author){ _toast(`${author}님의 게시물 링크가 복사되었습니다!`); };
 
 window.renderTopUsers = async function(){
   const el=document.getElementById('topUsers');
@@ -531,7 +544,7 @@ window.joinChallenge = async function(){
   const c=CHALLENGES[window.currentChIdx];
   if(!window.currentUser.joinedChallenges) window.currentUser.joinedChallenges=[];
   if(window.currentUser.joinedChallenges.includes(c.id)){
-    closeChModal(); window.showToast('이미 참여 중인 챌린지입니다'); return;
+    closeChModal(); _toast('이미 참여 중인 챌린지입니다'); return;
   }
   window.currentUser.joinedChallenges.push(c.id);
   if(!window.currentUser.challengeProgress) window.currentUser.challengeProgress={};
@@ -540,7 +553,7 @@ window.joinChallenge = async function(){
   await saveCurrentUser();
   closeChModal();
   renderChallenges();
-  window.showToast('챌린지 참여 완료! +100P 🏆');
+  _toast('챌린지 참여 완료! +100P 🏆');
   setTimeout(()=>goPage('workout'),1500);
 };
 
@@ -1551,6 +1564,9 @@ function goPage(name){
   if(name==='community') renderCommunity();
   if(name==='home') animateHomeStats();
 }
+
+function animateHomeStats(){
+  const stats = { users:0, totalReps:0, challenges:0 };
   const e1=document.getElementById('hs1');
   const e2=document.getElementById('hs2');
   const e3=document.getElementById('hs3');
@@ -1559,11 +1575,14 @@ function goPage(name){
   if(e1) animNum(e1, stats.users, 900);
   if(e2) animNum(e2, stats.totalReps, 1400);
   if(e3) animNum(e3, stats.challenges, 700);
-  // LIVE 텍스트 — 깜빡임 스타일 유지
   if(e4){
     e4.textContent='LIVE';
     e4.style.color='var(--accent3)';
     e4.style.animation='blink 1.5s infinite';
+  }
+  // Firebase 실시간 리스너는 window.animateHomeStats가 처리
+  if(window.animateHomeStats && window.animateHomeStats !== animateHomeStats){
+    window.animateHomeStats();
   }
 }
 
