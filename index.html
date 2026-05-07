@@ -167,10 +167,10 @@ onAuthStateChanged(auth, async (fbUser)=>{
       updateNavUI();
       goPage('home');
       setTimeout(animateHomeStats,300);
-      showToast(`환영합니다, ${window.currentUser.name}님! 💪`);
+      window.showToast(`환영합니다, ${window.currentUser.name}님! 💪`);
     } catch(e){
       hideLoading();
-      showToast('데이터 로드 실패: '+e.message);
+      window.showToast('데이터 로드 실패: '+e.message);
     }
   } else {
     hideLoading();
@@ -394,7 +394,7 @@ window.renderPosts = async function(){
         </div>
       </div>`;
     }).join('');
-    initReveal();
+    window.initReveal && window.initReveal();
   } catch(e){
     feed.innerHTML=`<div style="text-align:center;padding:2rem;color:var(--accent2);font-family:'Barlow Condensed',sans-serif;">게시물을 불러오지 못했습니다</div>`;
   }
@@ -415,7 +415,7 @@ window.renderRecordCard = function(record){
 };
 
 window.toggleLike = async function(postId, pi){
-  if(!window.currentUid){ showToast('로그인이 필요합니다'); return; }
+  if(!window.currentUid){ window.showToast('로그인이 필요합니다'); return; }
   const postRef = doc(db,'posts',postId);
   const p = window.posts[pi];
   const liked = p.likedBy&&p.likedBy[window.currentUid];
@@ -425,7 +425,7 @@ window.toggleLike = async function(postId, pi){
       likeCount: increment(liked?-1:1)
     });
     await renderPosts();
-  } catch(e){ showToast('좋아요 처리 실패'); }
+  } catch(e){ window.showToast('좋아요 처리 실패'); }
 };
 
 window.toggleComments = function(id){
@@ -451,21 +451,21 @@ window.addComment = async function(postId, pi){
     inp.value='';
     await renderPosts();
     setTimeout(()=>{ const el=document.getElementById('cmts-'+postId); if(el) el.classList.add('open'); },50);
-  } catch(e){ showToast('댓글 등록 실패'); }
+  } catch(e){ window.showToast('댓글 등록 실패'); }
 };
 
 window.deletePost = async function(postId){
   if(!confirm('이 게시물을 삭제하시겠습니까?')) return;
   try{
     await deleteDoc(doc(db,'posts',postId));
-    showToast('게시물이 삭제됐습니다');
+    window.showToast('게시물이 삭제됐습니다');
     await renderPosts();
-  } catch(e){ showToast('삭제 실패'); }
+  } catch(e){ window.showToast('삭제 실패'); }
 };
 
 window.submitPost = async function(){
   const body=document.getElementById('postContent').value.trim();
-  if(!body){ showToast('내용을 입력해주세요'); return; }
+  if(!body){ window.showToast('내용을 입력해주세요'); return; }
   showLoading('게시 중...');
   try{
     await addDoc(collection(db,'posts'),{
@@ -493,14 +493,14 @@ window.submitPost = async function(){
     document.getElementById('recordPanel').style.display='none';
     hideLoading();
     await renderPosts();
-    showToast('게시물이 등록됐습니다! +50P 🎉');
+    window.showToast('게시물이 등록됐습니다! +50P 🎉');
   } catch(e){
     hideLoading();
-    showToast('게시 실패: '+e.message);
+    window.showToast('게시 실패: '+e.message);
   }
 };
 
-window.copyShareLink = function(author){ showToast(`${author}님의 게시물 링크가 복사되었습니다!`); };
+window.copyShareLink = function(author){ window.showToast(`${author}님의 게시물 링크가 복사되었습니다!`); };
 
 window.renderTopUsers = async function(){
   const el=document.getElementById('topUsers');
@@ -531,7 +531,7 @@ window.joinChallenge = async function(){
   const c=CHALLENGES[window.currentChIdx];
   if(!window.currentUser.joinedChallenges) window.currentUser.joinedChallenges=[];
   if(window.currentUser.joinedChallenges.includes(c.id)){
-    closeChModal(); showToast('이미 참여 중인 챌린지입니다'); return;
+    closeChModal(); window.showToast('이미 참여 중인 챌린지입니다'); return;
   }
   window.currentUser.joinedChallenges.push(c.id);
   if(!window.currentUser.challengeProgress) window.currentUser.challengeProgress={};
@@ -540,7 +540,7 @@ window.joinChallenge = async function(){
   await saveCurrentUser();
   closeChModal();
   renderChallenges();
-  showToast('챌린지 참여 완료! +100P 🏆');
+  window.showToast('챌린지 참여 완료! +100P 🏆');
   setTimeout(()=>goPage('workout'),1500);
 };
 
@@ -589,14 +589,14 @@ window.saveSetFirebase = async function(){
 };
 
 // ═══════════════════════════════════════
-// INIT
+// INIT (module)
+// showToast / initReveal 은 일반 script가 window.*에 등록 후 사용
 // ═══════════════════════════════════════
-initReveal();
-// onAuthStateChanged가 로그인 여부 판단 — 여기서는 로딩만 표시
+// 로딩 스피너는 module이 직접 제어
 showLoading('IRONBODY 로딩 중...');
 setTimeout(()=>{
   if(!auth.currentUser) hideLoading();
-},3000);
+},4000);
 
 </script>
 <style>
@@ -1455,27 +1455,22 @@ nav{position:fixed;top:0;width:100%;z-index:600;height:60px;
 
 <script>
 // ═══════════════════════════════════════════
-// 기존 localStorage 초기화 (마이그레이션)
+// 기존 localStorage 초기화
 // ═══════════════════════════════════════════
 localStorage.removeItem('ib_users');
 localStorage.removeItem('ib_current');
 localStorage.removeItem('ib_posts');
 
-// Firebase module에서 window.*로 노출된 함수들을 사용
-// 아래는 운동 AI / UI 전용 로컬 상태만 유지
 let selectedTags  = [];
 let currentChIdx  = null;
 let pendingRecord = null;
 let posts         = [];
-
-const AVATARS = ['😀','💪','🔥','⚔️','🦁','🐉','✨','👑','🏋️','🎯'];
 
 // ── AUTH 래퍼 (Firebase module로 위임) ──
 function switchAuthTab(tab){ if(window.switchAuthTab) window.switchAuthTab(tab); }
 function doLogin(){ if(window.doLogin) window.doLogin(); }
 function doSignup(){ if(window.doSignup) window.doSignup(); }
 function demoLogin(){
-  // 데모 계정: Firebase Auth에 미리 만들어둔 계정으로 로그인
   document.getElementById('loginEmail').value='demo@ironbody.kr';
   document.getElementById('loginPw').value='demo1234';
   doLogin();
@@ -1511,14 +1506,30 @@ function animNum(el,end,dur){ if(window.animNum) window.animNum(el,end,dur); }
 // 챌린지 래퍼
 function joinChallenge(){ if(window.joinChallenge) window.joinChallenge(); }
 
-// currentUser 게터 (Firebase module에서 관리)
+// currentUser 게터
 function getCurrentUser(){ return window.currentUser; }
 function getCurrentUid(){ return window.currentUid; }
 
-// ═══════════════════════════════════════════
-// AUTH (더미 — Firebase module이 실제 처리)
-// ═══════════════════════════════════════════
-const AVATARS = ['😀','💪','🔥','⚔️','🦁','🐉','✨','👑','🏋️','🎯'];
+// ── showToast / initReveal을 window에도 등록 (module에서 호출 가능하도록) ──
+function showToast(msg){
+  const t=document.getElementById('toast');
+  if(!t) return;
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(window._toastTimer);
+  window._toastTimer=setTimeout(()=>t.classList.remove('show'),3200);
+}
+window.showToast = showToast;
+
+function initReveal(){
+  const els=document.querySelectorAll('.reveal:not(.visible)');
+  if(!els.length) return;
+  const obs=new IntersectionObserver(entries=>{
+    entries.forEach(e=>{if(e.isIntersecting) e.target.classList.add('visible');});
+  },{threshold:.1,rootMargin:'0px 0px -30px 0px'});
+  els.forEach(el=>obs.observe(el));
+}
+window.initReveal = initReveal;
+initReveal();
 
 // ═══════════════════════════════════════════
 // PAGE ROUTING
@@ -2353,19 +2364,6 @@ function toggleTag(el, tag){
 })();
 
 // ═══════════════════════════════════════════
-// SCROLL REVEAL
-// ═══════════════════════════════════════════
-function initReveal(){
-  const els=document.querySelectorAll('.reveal:not(.visible)');
-  if(!els.length) return;
-  const obs=new IntersectionObserver(entries=>{
-    entries.forEach(e=>{if(e.isIntersecting) e.target.classList.add('visible');});
-  },{threshold:.1,rootMargin:'0px 0px -30px 0px'});
-  els.forEach(el=>obs.observe(el));
-}
-initReveal();
-
-// ═══════════════════════════════════════════
 // MOBILE DRAWER
 // ═══════════════════════════════════════════
 function toggleMobileMenu(){
@@ -2382,18 +2380,6 @@ function closeMobileMenu(){
   document.getElementById('drawerBackdrop')?.classList.remove('open');
   document.getElementById('hamburger')?.classList.remove('open');
   document.body.style.overflow='';
-}
-
-// ═══════════════════════════════════════════
-// TOAST
-// ═══════════════════════════════════════════
-let toastTimer=null;
-function showToast(msg){
-  const t=document.getElementById('toast');
-  if(!t) return;
-  t.textContent=msg; t.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>t.classList.remove('show'),3200);
 }
 </script>
 </body>
