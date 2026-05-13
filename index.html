@@ -2,7 +2,17 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="IRONBODY">
+<meta name="application-name" content="IRONBODY">
+<meta name="theme-color" content="#070809">
+<meta name="description" content="AI가 카운팅하는 맨몸운동 경쟁 플랫폼">
+<!-- PWA 아이콘 (SVG 인라인으로 처리) -->
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%23070809'/%3E%3Ctext x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-size='320' font-family='Arial Black'%3E💪%3C/text%3E%3Ctext x='50%25' y='88%25' dominant-baseline='middle' text-anchor='middle' font-size='72' font-family='Arial Black' fill='%23e8ff00' font-weight='900' letter-spacing='4'%3EIRONBODY%3C/text%3E%3C/svg%3E">
+<link rel="manifest" href="data:application/json,%7B%22name%22%3A%22IRONBODY%22%2C%22short_name%22%3A%22IRONBODY%22%2C%22description%22%3A%22AI%20%EB%A7%A8%EB%AA%B8%EC%9A%B4%EB%8F%99%20%EA%B2%BD%EC%9F%81%20%ED%94%8C%EB%9E%AB%ED%8F%BC%22%2C%22start_url%22%3A%22.%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23070809%22%2C%22theme_color%22%3A%22%23070809%22%2C%22orientation%22%3A%22portrait%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%2C%253Csvg%2520xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%2520viewBox%3D'0%25200%2520512%2520512'%253E%253Crect%2520width%3D'512'%2520height%3D'512'%2520fill%3D'%2523070809'%2F%253E%253C%2Fsvg%253E%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D">
 <title>IRONBODY — AI 맨몸운동 경쟁 플랫폼</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700;900&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -1060,6 +1070,33 @@ nav{position:fixed;top:0;width:100%;z-index:600;height:60px;
   .ex-list{grid-template-columns:repeat(3,1fr);}
   .hstat-num{font-size:1.1rem;}
 }
+/* ══ iOS Safe Area / PWA ══ */
+:root{
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+/* standalone(앱) 모드일 때 상단 여백 추가 */
+@media all and (display-mode: standalone){
+  nav{ padding-top: var(--safe-top); height: calc(56px + var(--safe-top)); }
+  .page{ padding-top: calc(56px + var(--safe-top)); }
+  .mobile-tabbar{ padding-bottom: var(--safe-bottom); height: calc(58px + var(--safe-bottom)); }
+  .page{ padding-bottom: calc(68px + var(--safe-bottom)); }
+}
+/* PWA 설치 안내 배너 */
+#pwaInstallBanner{
+  position:fixed;bottom:70px;left:50%;transform:translateX(-50%);z-index:600;
+  background:var(--bg2);border:1px solid var(--accent);
+  padding:.75rem 1.2rem;display:none;align-items:center;gap:.8rem;
+  max-width:340px;width:calc(100% - 2rem);animation:fadeUp .4s ease;
+  box-shadow:0 4px 24px rgba(0,0,0,.5);
+}
+#pwaInstallBanner .pwa-icon{font-size:1.5rem;}
+#pwaInstallBanner .pwa-text{flex:1;}
+#pwaInstallBanner .pwa-title{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.9rem;letter-spacing:1px;color:var(--accent);}
+#pwaInstallBanner .pwa-desc{font-family:'Barlow Condensed',sans-serif;font-size:.75rem;color:var(--muted);letter-spacing:.5px;margin-top:.1rem;}
+#pwaInstallBanner .pwa-btn{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:.78rem;letter-spacing:2px;text-transform:uppercase;background:var(--accent);color:#000;border:none;padding:.45rem .9rem;cursor:pointer;white-space:nowrap;}
+#pwaInstallBanner .pwa-close{background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;padding:.2rem;line-height:1;}
+@media(min-width:769px){#pwaInstallBanner{bottom:1.5rem;}}
 </style>
 </head>
 <body>
@@ -2431,6 +2468,111 @@ function closeMobileMenu(){
   document.getElementById('drawerBackdrop')?.classList.remove('open');
   document.getElementById('hamburger')?.classList.remove('open');
   document.body.style.overflow='';
+}
+</script>
+<!-- PWA 설치 배너 -->
+<div id="pwaInstallBanner">
+  <div class="pwa-icon">💪</div>
+  <div class="pwa-text">
+    <div class="pwa-title">IRONBODY 앱 설치</div>
+    <div class="pwa-desc">홈 화면에 추가해서 앱처럼 사용하세요</div>
+  </div>
+  <button class="pwa-btn" id="pwaInstallBtn">설치</button>
+  <button class="pwa-close" onclick="dismissPWA()">✕</button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// PWA — 설치 프롬프트 & Service Worker
+// ═══════════════════════════════════════════
+let deferredPrompt = null;
+
+// Android Chrome: 설치 프롬프트 이벤트 받기
+window.addEventListener('beforeinstallprompt', (e)=>{
+  e.preventDefault();
+  deferredPrompt = e;
+  // 이미 설치됐거나 배너 닫은 경우 무시
+  if(localStorage.getItem('pwa_dismissed')) return;
+  // 로그인 후 3초 뒤에 배너 표시
+  setTimeout(showPWABanner, 3000);
+});
+
+function showPWABanner(){
+  const banner = document.getElementById('pwaInstallBanner');
+  if(banner) banner.style.display='flex';
+}
+
+function dismissPWA(){
+  document.getElementById('pwaInstallBanner').style.display='none';
+  localStorage.setItem('pwa_dismissed','1');
+}
+
+document.getElementById('pwaInstallBtn')?.addEventListener('click', async ()=>{
+  if(!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const result = await deferredPrompt.userChoice;
+  if(result.outcome==='accepted') showToast('IRONBODY가 앱으로 설치됐습니다! 🎉');
+  deferredPrompt = null;
+  dismissPWA();
+});
+
+// iOS 감지 — Safari에서는 수동 안내
+function isIOS(){ return /iphone|ipad|ipod/i.test(navigator.userAgent); }
+function isInStandaloneMode(){ return ('standalone' in navigator) && navigator.standalone; }
+
+if(isIOS() && !isInStandaloneMode() && !localStorage.getItem('pwa_dismissed')){
+  setTimeout(()=>{
+    const banner = document.getElementById('pwaInstallBanner');
+    if(!banner) return;
+    banner.querySelector('.pwa-title').textContent = 'iPhone 앱으로 설치하기';
+    banner.querySelector('.pwa-desc').textContent = '아래 공유 버튼 → "홈 화면에 추가" 탭';
+    banner.querySelector('.pwa-btn').textContent = '알겠어요';
+    banner.querySelector('.pwa-btn').onclick = dismissPWA;
+    banner.style.display='flex';
+  }, 3000);
+}
+
+// ── Service Worker 등록 (오프라인 지원) ──
+if('serviceWorker' in navigator){
+  // SW 코드를 Blob으로 만들어서 별도 파일 없이 등록
+  const swCode = `
+const CACHE = 'ironbody-v1';
+const PRECACHE = [
+  '/',
+  'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700;900&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap'
+];
+
+self.addEventListener('install', e=>{
+  e.waitUntil(
+    caches.open(CACHE).then(c=>c.addAll(PRECACHE).catch(()=>{}))
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', e=>{
+  e.waitUntil(
+    caches.keys().then(keys=>Promise.all(
+      keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))
+    ))
+  );
+  self.clients.claim();
+});
+
+self.addEventListener('fetch', e=>{
+  // Firebase / MediaPipe는 캐시 안 함 (항상 최신)
+  const url = e.request.url;
+  if(url.includes('firebase') || url.includes('mediapipe') || url.includes('googleapis.com/identitytoolkit')){
+    return;
+  }
+  e.respondWith(
+    fetch(e.request).catch(()=>caches.match(e.request))
+  );
+});
+`;
+  const blob = new Blob([swCode], {type:'application/javascript'});
+  const swUrl = URL.createObjectURL(blob);
+  navigator.serviceWorker.register(swUrl, {scope:'/'})
+    .catch(()=>{}); // 실패해도 앱 동작에 영향 없음
 }
 </script>
 </body>
